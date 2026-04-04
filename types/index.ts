@@ -1,5 +1,6 @@
 export type CampaignStatus = 'active' | 'paused' | 'completed';
 export type Platform = 'google' | 'meta' | 'linkedin';
+export type UserRole = 'expert' | 'agency' | 'client';
 
 export interface Campaign {
     id: string;
@@ -26,7 +27,14 @@ export interface RealEstateProgram {
     location: string;
     promoter_name: string;
     status: 'marketing' | 'construction' | 'delivered';
-    stats: ProgramStats;
+    
+    // Configuration Data
+    conversion_source: 'platform' | 'ga4';
+    
+    // Data Sources
+    stats_platform: ProgramStats;
+    stats_ga4: ProgramStats;
+
     campaigns: Campaign[];
     // Pour le graphique d'historique
     history: {

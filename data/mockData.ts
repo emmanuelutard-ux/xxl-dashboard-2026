@@ -7,12 +7,21 @@ export const MOCK_PROGRAMS: RealEstateProgram[] = [
         location: 'Bordeaux',
         promoter_name: 'Promoteur A',
         status: 'marketing',
-        stats: {
+        conversion_source: 'platform',
+        stats_platform: {
             total_budget: 15000,
             spent_budget: 8450,
             leads: 145,
             appointments: 12,
             cpl: 58,
+            sales: 2,
+        },
+        stats_ga4: {
+            total_budget: 15000,
+            spent_budget: 8450,
+            leads: 130, // GA4 under-reports usually
+            appointments: 12,
+            cpl: 65,
             sales: 2,
         },
         history: [
@@ -47,12 +56,21 @@ export const MOCK_PROGRAMS: RealEstateProgram[] = [
         location: 'La Défense',
         promoter_name: 'Promoteur B',
         status: 'construction',
-        stats: {
+        conversion_source: 'ga4',
+        stats_platform: {
             total_budget: 50000,
             spent_budget: 12000,
             leads: 45,
             appointments: 5,
-            cpl: 266, // 12000 / 45 approx
+            cpl: 266,
+            sales: 0,
+        },
+        stats_ga4: {
+            total_budget: 50000,
+            spent_budget: 12000,
+            leads: 40,
+            appointments: 5,
+            cpl: 300,
             sales: 0,
         },
         history: [
