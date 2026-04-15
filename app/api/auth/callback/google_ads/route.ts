@@ -68,7 +68,7 @@ export async function GET(request: Request) {
             .eq('service_name', 'google_ads')
 
         // 4. Succès
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/expert/cockpit?success=google_connected`)
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/agency/media-room?success=google_connected`)
 
     } catch (err: any) {
         console.error("CRASH:", err)
