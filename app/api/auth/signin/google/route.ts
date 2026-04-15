@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
 
-export async function GET() {
+export async function GET(request: Request) {
     const supabase = await createClient()
 
     // 1. Récupérer le Client ID stocké
@@ -15,8 +15,10 @@ export async function GET() {
         return NextResponse.json({ error: "Client ID introuvable. Configurez les clés d'abord." }, { status: 400 })
     }
 
-    // 2. Construire l'URL OAuth Google
-    const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/auth/callback/google_ads`
+    // 2. Construire l'URL de base dynamiquement depuis les headers de la requête
+    const host  = request.headers.get('host') ?? 'localhost:3000'
+    const proto = request.headers.get('x-forwarded-proto') ?? 'http'
+    const redirectUri = `${proto}://${host}/api/auth/callback/google_ads`
 
     // MODIFICATION ICI : On utilise le scope "adwords" qui est déjà actif dans ta console
     // Au lieu de "https://www.googleapis.com/auth/google-ads"
