@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import type { MediaPlan } from '@/app/actions/generateMediaPlan'
 import type { Retour } from '@/app/actions/saveRetour'
 import PlanChecklistClient from './PlanChecklistClient'
+import ProgramInfoEditor from './ProgramInfoEditor'
 import RetourButton from './RetourButton'
 import ValidatePlanButton from './ValidatePlanButton'
 import PrintButton from './PrintButton'
@@ -56,7 +57,7 @@ export default async function ProgramDetailPage({
   const [{ data: program, error }, { data: { user } }] = await Promise.all([
     supabase
       .from('real_estate_programs')
-      .select('id, name, location, status, budget_google, budget_meta, has_brs, lot_count, ai_media_plan, brief_data, crm_provider, created_at, start_date')
+      .select('id, name, location, status, budget_google, budget_meta, has_brs, lot_count, ai_media_plan, brief_data, crm_provider, created_at, start_date, end_date, landing_page_url')
       .eq('id', id)
       .single(),
     supabase.auth.getUser(),
@@ -74,6 +75,11 @@ export default async function ProgramDetailPage({
 
   const budgetTotal = (Number(program.budget_google) || 0) + (Number(program.budget_meta) || 0)
   const isValidated = program.status === 'validated'
+
+  const initialCheckedIds: number[] =
+    Array.isArray((program.brief_data as Record<string, unknown>)?.checklist_completed)
+      ? ((program.brief_data as Record<string, unknown>).checklist_completed as number[])
+      : []
 
   return (
     <div id="program-content" className="min-h-screen bg-slate-50 px-4 py-8 md:px-8">
@@ -149,6 +155,18 @@ export default async function ProgramDetailPage({
             )}
           </div>
         </div>
+
+        {/* ── Informations campagne ── */}
+        <ProgramInfoEditor
+          programId={program.id}
+          initial={{
+            start_date:       program.start_date       ?? null,
+            end_date:         program.end_date         ?? null,
+            budget_google:    program.budget_google    ? Number(program.budget_google)    : null,
+            budget_meta:      program.budget_meta      ? Number(program.budget_meta)      : null,
+            landing_page_url: program.landing_page_url ?? null,
+          }}
+        />
 
         {/* ── Pas de plan encore ── */}
         {!plan && (
@@ -426,7 +444,11 @@ export default async function ProgramDetailPage({
                 </div>
               </CardHeader>
               <CardContent>
-                <PlanChecklistClient checklist={plan.checklist} />
+                <PlanChecklistClient
+                  programId={program.id}
+                  checklist={plan.checklist}
+                  initialCheckedIds={initialCheckedIds}
+                />
               </CardContent>
             </Card>
 

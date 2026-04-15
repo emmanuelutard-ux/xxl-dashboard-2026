@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import type { MediaPlanChecklist } from '@/app/actions/generateMediaPlan'
+import { saveChecklistState } from '@/app/actions/saveChecklistState'
 
 function prioriteBadge(p: MediaPlanChecklist['priorite']) {
   const map = {
@@ -31,16 +32,30 @@ function responsableBadge(r: MediaPlanChecklist['responsable']) {
 }
 
 interface Props {
+  programId: string
   checklist: MediaPlanChecklist[]
+  initialCheckedIds?: number[]
 }
 
-export default function PlanChecklistClient({ checklist }: Props) {
-  const [checked, setChecked] = useState<Record<number, boolean>>({})
+export default function PlanChecklistClient({ programId, checklist, initialCheckedIds = [] }: Props) {
+  const [checked, setChecked] = useState<Record<number, boolean>>(
+    () => Object.fromEntries(initialCheckedIds.map((i) => [i, true]))
+  )
+  const [, startTransition] = useTransition()
 
   const doneCount = Object.values(checked).filter(Boolean).length
 
   function toggle(i: number) {
-    setChecked((prev) => ({ ...prev, [i]: !prev[i] }))
+    const next = { ...checked, [i]: !checked[i] }
+    setChecked(next)
+
+    const checkedIds = Object.entries(next)
+      .filter(([, v]) => v)
+      .map(([k]) => Number(k))
+
+    startTransition(async () => {
+      await saveChecklistState(programId, checkedIds)
+    })
   }
 
   return (
