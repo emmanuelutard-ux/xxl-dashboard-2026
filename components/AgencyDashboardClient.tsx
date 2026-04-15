@@ -1,10 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { MoreVertical, Loader2 } from 'lucide-react'
-import { deleteProgram } from '@/app/actions/deleteProgram'
 
 // Formatage de date sans dépendance à la locale du navigateur (évite l'hydratation mismatch)
 function fmtDate(iso: string): string {
@@ -27,36 +23,13 @@ export interface AgencyProgramData {
 }
 
 export default function AgencyDashboardClient({ programs = [] }: { programs: AgencyProgramData[] }) {
-    const router = useRouter()
 
-    const [openMenuId, setOpenMenuId]       = useState<string | null>(null)
-    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-    const [deleting, setDeleting]           = useState(false)
-    const [deleteError, setDeleteError]     = useState<string | null>(null)
-
-    const totalBudget  = programs.reduce((acc, p) => acc + (p.total_budget || 0), 0)
-    const totalLeads   = 399
+    const totalBudget = programs.reduce((acc, p) => acc + (p.total_budget || 0), 0)
+    const totalLeads = 399
     const mediaInvested = 6714
-
-    async function handleDelete(id: string) {
-        setDeleting(true)
-        const res = await deleteProgram(id)
-        setDeleting(false)
-        if (res.success) {
-            setConfirmDeleteId(null)
-            router.refresh()
-        } else {
-            setDeleteError(res.error ?? 'Erreur inconnue')
-        }
-    }
 
     return (
         <div>
-            {/* Ferme le menu au clic extérieur */}
-            {openMenuId && (
-                <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
-            )}
-
             {/* --- BLOC STATISTIQUES --- */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
@@ -111,6 +84,7 @@ export default function AgencyDashboardClient({ programs = [] }: { programs: Age
                                         <div className="flex items-center gap-2">
                                             <span className="font-bold text-slate-900">{program.name}</span>
                                         </div>
+
                                         <div className="flex items-center gap-2 mt-1">
                                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${
                                                 program.status === 'brief'      ? 'bg-slate-100 text-slate-500 border-slate-200' :
@@ -161,7 +135,6 @@ export default function AgencyDashboardClient({ programs = [] }: { programs: Age
                                     </div>
                                 </td>
 
-                                {/* ── Actions ── */}
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-2">
                                         <Link
@@ -176,72 +149,6 @@ export default function AgencyDashboardClient({ programs = [] }: { programs: Age
                                         >
                                             📊 Performances
                                         </Link>
-
-                                        {/* ⋮ Modifier + Supprimer */}
-                                        {confirmDeleteId === program.id ? (
-                                            <div className="flex flex-col gap-1.5">
-                                                {deleteError && (
-                                                    <p className="text-[10px] text-red-600">{deleteError}</p>
-                                                )}
-                                                <p className="text-xs font-medium text-red-700 whitespace-nowrap">Confirmer ?</p>
-                                                <div className="flex gap-1.5">
-                                                    <button
-                                                        type="button"
-                                                        disabled={deleting}
-                                                        onClick={() => handleDelete(program.id)}
-                                                        className="flex items-center justify-center rounded-md bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
-                                                    >
-                                                        {deleting
-                                                            ? <Loader2 className="h-3 w-3 animate-spin" />
-                                                            : 'Supprimer'}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        disabled={deleting}
-                                                        onClick={() => { setConfirmDeleteId(null); setDeleteError(null) }}
-                                                        className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                                                    >
-                                                        Annuler
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="relative z-20">
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        setOpenMenuId(openMenuId === program.id ? null : program.id)
-                                                    }}
-                                                    className="flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-                                                    aria-label="Options"
-                                                >
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </button>
-
-                                                {openMenuId === program.id && (
-                                                    <div className="absolute right-0 top-8 w-36 rounded-lg border border-slate-200 bg-white py-1 shadow-lg z-30">
-                                                        <Link
-                                                            href={`/agency/programs/${program.id}`}
-                                                            onClick={() => setOpenMenuId(null)}
-                                                            className="flex w-full items-center px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                                                        >
-                                                            Modifier
-                                                        </Link>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setConfirmDeleteId(program.id)
-                                                                setOpenMenuId(null)
-                                                            }}
-                                                            className="flex w-full items-center px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                                                        >
-                                                            Supprimer
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
                                     </div>
                                 </td>
 
@@ -250,6 +157,7 @@ export default function AgencyDashboardClient({ programs = [] }: { programs: Age
                     </tbody>
                 </table>
             </div>
+
         </div>
     )
 }
