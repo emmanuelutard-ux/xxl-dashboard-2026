@@ -49,7 +49,7 @@ export default async function Home() {
     const role = profile?.role || "client";
 
     if (role === "expert") {
-        redirect("/expert/cockpit");
+        redirect("/agency/media-room");
     } else if (role === "agency") {
         redirect("/agency/media-room");
     } else {
