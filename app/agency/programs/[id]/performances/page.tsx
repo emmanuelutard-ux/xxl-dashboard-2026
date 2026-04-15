@@ -108,7 +108,7 @@ export default async function PerformancesPage({
         </div>
 
         {/* Partie interactive */}
-        <PerformancesClient program={programMeta} metrics={metrics} />
+        <PerformancesClient programId={id} program={programMeta} metrics={metrics} />
 
       </div>
     </div>

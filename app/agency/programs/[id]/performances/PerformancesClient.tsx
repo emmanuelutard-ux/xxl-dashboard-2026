@@ -1,13 +1,15 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   ComposedChart, Bar, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
 } from 'recharts'
 import { cn } from '@/lib/utils'
-import { TrendingUp, MousePointerClick, Users, Wallet } from 'lucide-react'
+import { TrendingUp, MousePointerClick, Users, Wallet, RefreshCw } from 'lucide-react'
+import { syncGoogleAds } from '@/app/actions/syncGoogleAds'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +28,7 @@ export interface ProgramMeta {
 }
 
 interface Props {
+  programId: string
   program: ProgramMeta
   metrics: DailyMetric[]
 }
@@ -140,9 +143,21 @@ function CanalSplitCard({
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 
-export default function PerformancesClient({ program, metrics }: Props) {
+export default function PerformancesClient({ programId, program, metrics }: Props) {
+  const router = useRouter()
   const [canal, setCanal]   = useState<Canal>('global')
   const [period, setPeriod] = useState<Period>('all')
+  const [syncing, setSyncing]   = useState(false)
+  const [syncMsg, setSyncMsg]   = useState<{ ok: boolean; text: string } | null>(null)
+
+  async function handleSync() {
+    setSyncing(true)
+    setSyncMsg(null)
+    const result = await syncGoogleAds(programId)
+    setSyncMsg({ ok: result.success, text: result.message })
+    setSyncing(false)
+    if (result.success) router.refresh()
+  }
 
   // ── Filtres dérivés ────────────────────────────────────────────────────────
 
@@ -273,6 +288,29 @@ export default function PerformancesClient({ program, metrics }: Props) {
           label="CTR moyen"
           value={kpis.ctr !== null ? kpis.ctr.toFixed(2) + ' %' : '–'}
         />
+      </div>
+
+      {/* ── Sync Google Ads ── */}
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSync}
+          disabled={syncing}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium shadow-sm transition-colors',
+            syncing
+              ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
+              : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50'
+          )}
+        >
+          <RefreshCw className={cn('h-4 w-4', syncing && 'animate-spin')} />
+          {syncing ? 'Synchronisation…' : 'Synchroniser Google Ads'}
+        </button>
+        {syncMsg && (
+          <p className={cn('text-sm', syncMsg.ok ? 'text-green-700' : 'text-red-600')}>
+            {syncMsg.text}
+          </p>
+        )}
       </div>
 
       {/* ── Sélecteurs canal + période ── */}
