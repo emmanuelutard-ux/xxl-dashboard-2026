@@ -29,9 +29,10 @@ export async function testGoogleAdsConnection(): Promise<TestResult> {
       {
         method: 'GET',
         headers: {
-          'Authorization':     `Bearer ${accessToken}`,
-          'developer-token':   developerToken.trim(),
-          'login-customer-id': MCC_ID,
+          'Authorization':       `Bearer ${accessToken}`,
+          'developer-token':     developerToken.trim(),
+          'login-customer-id':   MCC_ID,
+          'x-goog-api-version':  '17',
         },
         cache: 'no-store',
       }
