@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Kanban, Plus } from 'lucide-react'
+import { BarChart3, Kanban, Plus, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { label: 'Media Room', href: '/agency/media-room', icon: BarChart3 },
   { label: 'Pipeline',   href: '/agency/programs',   icon: Kanban },
+  { label: 'Paramètres', href: '/agency/settings',   icon: Settings },
 ]
 
 export default function AgencyNav() {
