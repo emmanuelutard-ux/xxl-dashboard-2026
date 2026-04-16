@@ -55,7 +55,7 @@ async function fetchGoogleAdsDailyMetrics(
   console.log(`[syncGoogleAds] Appel API Google Ads — customer: ${customerId}`)
 
   const res = await fetch(
-    `https://googleads.googleapis.com/v19/customers/${customerId}/googleAds:search`,
+    `https://googleads.googleapis.com/v19/customers/${customerId}/googleAds:searchStream`,
     {
       method: 'POST',
       headers: {
@@ -77,8 +77,23 @@ async function fetchGoogleAdsDailyMetrics(
     throw new Error(`Google Ads API error (customer ${customerId}): ${err}`)
   }
 
-  const data = await res.json()
-  const results: unknown[] = data.results ?? []
+  // searchStream retourne du NDJSON : chaque ligne est un objet JSON distinct
+  const text = await res.text()
+  console.log(`[syncGoogleAds] Réponse brute (premiers 500 chars):`, text.slice(0, 500))
+
+  const results: unknown[] = text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .flatMap(line => {
+      try {
+        const parsed = JSON.parse(line)
+        // Chaque objet NDJSON contient un tableau "results"
+        return Array.isArray(parsed.results) ? parsed.results : []
+      } catch {
+        return []
+      }
+    })
 
   console.log(`[syncGoogleAds] Résultats bruts reçus: ${results.length} lignes`)
 
