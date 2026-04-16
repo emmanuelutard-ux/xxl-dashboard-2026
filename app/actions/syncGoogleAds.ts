@@ -1,9 +1,23 @@
 'use server'
 
 import { getGoogleAccessToken } from '@/utils/googleAuth'
-import { createClient } from '@/lib/supabase'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 const MCC_ID = '8667313568'
+
+// Client admin — bypasse le RLS via la service role key
+function createAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !key) {
+    throw new Error('[syncGoogleAds] NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY manquant')
+  }
+
+  return createSupabaseClient(url, key, {
+    auth: { persistSession: false },
+  })
+}
 
 interface DailyRow {
   date: string
@@ -38,6 +52,8 @@ async function fetchGoogleAdsDailyMetrics(
     ORDER BY segments.date DESC
   `
 
+  console.log(`[syncGoogleAds] Appel API Google Ads — customer: ${customerId}`)
+
   const res = await fetch(
     `https://googleads.googleapis.com/v19/customers/${customerId}/googleAds:search`,
     {
@@ -53,13 +69,18 @@ async function fetchGoogleAdsDailyMetrics(
     }
   )
 
+  console.log(`[syncGoogleAds] Réponse API Google Ads — status: ${res.status}`)
+
   if (!res.ok) {
     const err = await res.text()
+    console.error(`[syncGoogleAds] Erreur API Google Ads (${customerId}):`, err)
     throw new Error(`Google Ads API error (customer ${customerId}): ${err}`)
   }
 
   const data = await res.json()
   const results: unknown[] = data.results ?? []
+
+  console.log(`[syncGoogleAds] Résultats bruts reçus: ${results.length} lignes`)
 
   // Agrégation par date — somme de toutes les campagnes du compte
   const byDate = new Map<string, DailyRow>()
@@ -85,15 +106,23 @@ async function fetchGoogleAdsDailyMetrics(
     byDate.set(date, existing)
   }
 
-  return [...byDate.values()]
+  const aggregated = [...byDate.values()]
+  console.log(`[syncGoogleAds] Après agrégation: ${aggregated.length} jours distincts`)
+
+  return aggregated
 }
 
 // ─── Server Action principale ─────────────────────────────────────────────────
 
 export async function syncGoogleAds(programId?: string): Promise<SyncResult> {
+  console.log(`[syncGoogleAds] Démarrage — programId reçu: ${programId ?? '(aucun)'}`)
+
   try {
     const { accessToken, developerToken } = await getGoogleAccessToken()
-    const supabase = createClient()
+    console.log('[syncGoogleAds] Access token obtenu')
+
+    const supabase = createAdminClient()
+    console.log('[syncGoogleAds] Client Supabase admin initialisé (service role)')
 
     // Récupérer les comptes actifs liés au programme demandé (ou tous si pas de programId)
     let accountsQuery = supabase
@@ -109,9 +138,15 @@ export async function syncGoogleAds(programId?: string): Promise<SyncResult> {
 
     const { data: accounts, error: accErr } = await accountsQuery
 
+    console.log('[syncGoogleAds] Résultat requête google_ads_accounts:', {
+      accounts,
+      error: accErr?.message ?? null,
+    })
+
     if (accErr) throw new Error(`Erreur récupération comptes: ${accErr.message}`)
 
     if (!accounts || accounts.length === 0) {
+      console.warn('[syncGoogleAds] Aucun compte trouvé — programme_id non lié ou table vide')
       return {
         success: false,
         message: 'Aucun compte Google Ads lié à ce programme. Vérifiez la liaison dans google_ads_accounts.',
@@ -119,16 +154,23 @@ export async function syncGoogleAds(programId?: string): Promise<SyncResult> {
       }
     }
 
+    console.log(`[syncGoogleAds] ${accounts.length} compte(s) trouvé(s):`, accounts.map(a => a.customer_id))
+
     let totalInserted = 0
 
     for (const account of accounts) {
+      console.log(`[syncGoogleAds] Traitement compte: ${account.customer_id} — nom: ${account.nom}`)
+
       const rows = await fetchGoogleAdsDailyMetrics(
         account.customer_id,
         accessToken,
         developerToken
       )
 
-      if (rows.length === 0) continue
+      if (rows.length === 0) {
+        console.log(`[syncGoogleAds] Aucune donnée pour ${account.customer_id}, on passe`)
+        continue
+      }
 
       const upsertData = rows.map((r) => ({
         program_id:           account.programme_id as string,
@@ -141,16 +183,22 @@ export async function syncGoogleAds(programId?: string): Promise<SyncResult> {
         ga4_conversions:      0,
       }))
 
+      console.log(`[syncGoogleAds] Upsert de ${upsertData.length} lignes pour programme ${account.programme_id}`)
+
       const { error: upsertErr } = await supabase
         .from('daily_ad_metrics')
         .upsert(upsertData, { onConflict: 'program_id,date,platform' })
 
       if (upsertErr) {
+        console.error(`[syncGoogleAds] Erreur upsert (${account.customer_id}):`, upsertErr.message)
         throw new Error(`Erreur upsert (${account.customer_id}): ${upsertErr.message}`)
       }
 
+      console.log(`[syncGoogleAds] Upsert OK pour ${account.customer_id}`)
       totalInserted += rows.length
     }
+
+    console.log(`[syncGoogleAds] Terminé — ${totalInserted} jours insérés/mis à jour`)
 
     return {
       success: true,
@@ -159,7 +207,7 @@ export async function syncGoogleAds(programId?: string): Promise<SyncResult> {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erreur inconnue'
-    console.error('[syncGoogleAds]', message)
+    console.error('[syncGoogleAds] ERREUR:', message)
     return { success: false, message, inserted: 0 }
   }
 }
