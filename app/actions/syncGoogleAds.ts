@@ -2,6 +2,7 @@
 
 import { getGoogleAccessToken } from '@/utils/googleAuth'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { GOOGLE_ADS_API_VERSION } from './config'
 
 const MCC_ID = '8667313568'
 
@@ -33,7 +34,7 @@ export interface SyncResult {
   inserted: number
 }
 
-// ─── Appel Google Ads API v19 (GAQL) ─────────────────────────────────────────
+// ─── Appel Google Ads API (GAQL) ──────────────────────────────────────────────
 
 async function fetchGoogleAdsDailyMetrics(
   customerId: string,
@@ -55,7 +56,7 @@ async function fetchGoogleAdsDailyMetrics(
   console.log(`[syncGoogleAds] Appel API Google Ads — customer: ${customerId}`)
 
   const res = await fetch(
-    `https://googleads.googleapis.com/v17/customers/${customerId}/googleAds:search`,
+    `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerId}/googleAds:search`,
     {
       method: 'POST',
       headers: {

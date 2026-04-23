@@ -1,5 +1,6 @@
 'use server'
 import { getGoogleAccessToken } from '@/utils/googleAuth'
+import { GOOGLE_ADS_API_VERSION } from './config'
 
 export async function getGoogleAccounts() {
     try {
@@ -8,11 +9,9 @@ export async function getGoogleAccounts() {
         const tokens = await getGoogleAccessToken()
         const { accessToken, developerToken } = tokens
 
-        // CHANGEMENT ICI : On passe en v19 car la v16/v17 sont obsolètes en 2026
         const baseUrl = 'https://googleads.googleapis.com'
-        const version = 'v19'
         const endpoint = 'customers:listAccessibleCustomers'
-        const apiUrl = new URL(`/${version}/${endpoint}`, baseUrl).toString()
+        const apiUrl = new URL(`/${GOOGLE_ADS_API_VERSION}/${endpoint}`, baseUrl).toString()
 
         console.log("🔗 URL Ciblée :", apiUrl)
 
@@ -33,9 +32,9 @@ export async function getGoogleAccounts() {
             data = JSON.parse(responseText)
         } catch (e) {
             console.error("❌ CRASH JSON. Réponse brute :", responseText.substring(0, 200))
-            // Si on a encore une 404 HTML, c'est que la v19 est aussi trop vieille !
+            // 404 HTML = version API incorrecte ou endpoint invalide
             if (responseText.includes('Error 404')) {
-                return { success: false, error: `La version ${version} semble aussi obsolète. Essayez v20 ou v21 dans le code.` }
+                return { success: false, error: `La version ${GOOGLE_ADS_API_VERSION} est incorrecte. Mettez à jour GOOGLE_ADS_API_VERSION dans config.ts.` }
             }
             return { success: false, error: "L'API a renvoyé du HTML. Version API incorrecte." }
         }

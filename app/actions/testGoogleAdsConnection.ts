@@ -1,9 +1,10 @@
 'use server'
 
 import { getGoogleAccessToken } from '@/utils/googleAuth'
+import { GOOGLE_ADS_API_VERSION } from './config'
 
 const MCC_ID    = '8667313568'
-const API_URL   = 'https://googleads.googleapis.com/v17/customers:listAccessibleCustomers'
+const API_URL   = `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers:listAccessibleCustomers`
 
 export interface TestResult {
   success: boolean
@@ -29,7 +30,7 @@ export async function testGoogleAdsConnection(): Promise<TestResult> {
       'Authorization':      `Bearer ${accessToken.slice(0, 10)}…`,
       'developer-token':    `${developerToken.trim().slice(0, 6)}…`,
       'login-customer-id':  MCC_ID,
-      'x-goog-api-version': '17',
+      'x-goog-api-version': '23',
     }
 
     console.log('[testGoogleAdsConnection] URL appelée:', API_URL)
@@ -41,7 +42,7 @@ export async function testGoogleAdsConnection(): Promise<TestResult> {
         'Authorization':      `Bearer ${accessToken}`,
         'developer-token':    developerToken.trim(),
         'login-customer-id':  MCC_ID,
-        'x-goog-api-version': '17',
+        'x-goog-api-version': '23',
       },
       cache: 'no-store',
     })
