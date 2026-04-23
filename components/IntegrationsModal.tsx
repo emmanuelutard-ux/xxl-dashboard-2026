@@ -98,7 +98,7 @@ export default function IntegrationsModal({ isOpen, onClose }: any) {
                                     </form>
                                 </div>
                             ) : (
-                                <a href="/api/auth/signin/google" className="text-xs bg-white text-slate-700 px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50 flex items-center gap-2 font-medium w-fit">
+                                <a href="/api/auth/signin/google_ads" className="text-xs bg-white text-slate-700 px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50 flex items-center gap-2 font-medium w-fit">
                                     <span className="w-2 h-2 rounded-full bg-orange-500"></span> Se connecter avec Google
                                 </a>
                             )}

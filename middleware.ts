@@ -39,6 +39,7 @@ export async function middleware(request: NextRequest) {
     if (!user && request.nextUrl.pathname !== "/login") {
         // Allow public assets and login
         if (request.nextUrl.pathname.startsWith("/_next") ||
+            request.nextUrl.pathname.startsWith("/api/auth/") ||
             request.nextUrl.pathname.includes(".") ||
             request.nextUrl.pathname === "/") {
             return response;

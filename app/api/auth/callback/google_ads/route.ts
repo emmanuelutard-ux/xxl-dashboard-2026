@@ -28,7 +28,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: "Clés API manquantes en base." }, { status: 500 })
         }
 
-        const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/auth/callback/google_ads`
+        const redirectUri = `${requestUrl.protocol}//${requestUrl.host}/api/auth/callback/google_ads`
 
         // 2. Échange du code (CORRECTIF ICI : .toString() explicite)
         const params = new URLSearchParams()
