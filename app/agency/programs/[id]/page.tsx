@@ -12,6 +12,7 @@ import ProgramInfoEditor from './ProgramInfoEditor'
 import RetourButton from './RetourButton'
 import ValidatePlanButton from './ValidatePlanButton'
 import PrintButton from './PrintButton'
+import ManageCampaignsModal from './ManageCampaignsModal'
 
 export const dynamic = 'force-dynamic'
 
@@ -95,7 +96,10 @@ export default async function ProgramDetailPage({
               <ArrowLeft className="h-4 w-4" />
               Retour Media Room
             </Link>
-            <PrintButton programName={program.name} />
+            <div className="flex items-center gap-2">
+              <ManageCampaignsModal programId={id} />
+              <PrintButton programName={program.name} />
+            </div>
           </div>
 
           <div className="flex flex-wrap items-start justify-between gap-4">
