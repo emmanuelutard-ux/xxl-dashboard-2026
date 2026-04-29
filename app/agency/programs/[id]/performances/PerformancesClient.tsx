@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ComposedChart, Bar, Line,
@@ -8,8 +8,9 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { cn } from '@/lib/utils'
-import { TrendingUp, MousePointerClick, Users, Wallet, RefreshCw } from 'lucide-react'
+import { TrendingUp, MousePointerClick, Users, Wallet, RefreshCw, CalendarDays } from 'lucide-react'
 import { syncGoogleAds } from '@/app/actions/syncGoogleAds'
+import type { DateRange } from '@/app/actions/syncGoogleAds'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,12 +35,28 @@ interface Props {
 }
 
 type Canal  = 'global' | 'google' | 'meta'
-type Period = '7d' | '30d' | '90d' | 'all'
+type Period = '7d' | '30d' | '90d' | 'all' | 'custom'
+
+interface CustomRange { start: string; end: string }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function today(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
+function daysAgo(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return d.toISOString().split('T')[0]
+}
+
 function fmtEur(n: number, d = 2): string {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d }) + ' €'
+}
+
+function fmtDateShort(iso: string): string {
+  return iso.slice(8) + '/' + iso.slice(5, 7)
 }
 
 function isoWeek(dateStr: string): string {
@@ -56,11 +73,9 @@ function weekLabel(key: string): string {
   return `Semaine ${parseInt(sw)} · ${year}`
 }
 
-function getCutoff(period: Period): string | null {
+function getCutoff(period: Exclude<Period, 'custom'>): string | null {
   if (period === 'all') return null
-  const d = new Date()
-  d.setDate(d.getDate() - (period === '7d' ? 7 : period === '30d' ? 30 : 90))
-  return d.toISOString().slice(0, 10)
+  return daysAgo(period === '7d' ? 7 : period === '30d' ? 30 : 90)
 }
 
 function agg(rows: DailyMetric[]) {
@@ -70,6 +85,19 @@ function agg(rows: DailyMetric[]) {
     clicks: rows.reduce((s, r) => s + r.clicks, 0),
     impr:   rows.reduce((s, r) => s + r.impressions, 0),
   }
+}
+
+// Calcule la DateRange à passer à syncGoogleAds selon la période active
+function periodToDateRange(period: Period, customRange: CustomRange | null): DateRange {
+  const t = today()
+  if (period === 'custom' && customRange) {
+    return { startDate: customRange.start, endDate: customRange.end }
+  }
+  if (period === '7d')  return { startDate: daysAgo(7),  endDate: t }
+  if (period === '30d') return { startDate: daysAgo(30), endDate: t }
+  if (period === '90d') return { startDate: daysAgo(90), endDate: t }
+  // 'all' → remonte depuis 2020, Google Ads auto-filtre aux jours réels
+  return { startDate: '2020-01-01', endDate: t }
 }
 
 // ─── Tooltip recharts ─────────────────────────────────────────────────────────
@@ -145,18 +173,69 @@ function CanalSplitCard({
 
 export default function PerformancesClient({ programId, program, metrics }: Props) {
   const router = useRouter()
+
   const [canal, setCanal]   = useState<Canal>('global')
   const [period, setPeriod] = useState<Period>('all')
-  const [syncing, setSyncing]   = useState(false)
-  const [syncMsg, setSyncMsg]   = useState<{ ok: boolean; text: string } | null>(null)
+
+  const [customRange,     setCustomRange]     = useState<CustomRange | null>(null)
+  const [showCustomPicker, setShowCustomPicker] = useState(false)
+  const [pickerDraft,     setPickerDraft]     = useState({ start: '', end: '' })
+  const [pickerError,     setPickerError]     = useState<string | null>(null)
+
+  const [syncing,  setSyncing]  = useState(false)
+  const [syncMsg,  setSyncMsg]  = useState<{ ok: boolean; text: string } | null>(null)
+
+  // Ferme le popover si on clique en dehors
+  const pickerRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!showCustomPicker) return
+    function onClickOutside(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowCustomPicker(false)
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [showCustomPicker])
+
+  // ── Sync ──────────────────────────────────────────────────────────────────
 
   async function handleSync() {
     setSyncing(true)
     setSyncMsg(null)
-    const result = await syncGoogleAds(programId)
+    const dateRange = periodToDateRange(period, customRange)
+    const result = await syncGoogleAds(programId, dateRange)
     setSyncMsg({ ok: result.success, text: result.message })
     setSyncing(false)
     if (result.success) router.refresh()
+  }
+
+  // ── Date picker custom ────────────────────────────────────────────────────
+
+  function handleApplyCustom() {
+    setPickerError(null)
+    const t      = today()
+    const minIso = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 2); return d.toISOString().split('T')[0] })()
+
+    if (!pickerDraft.start || !pickerDraft.end) {
+      setPickerError('Veuillez renseigner les deux dates.')
+      return
+    }
+    if (pickerDraft.start > pickerDraft.end) {
+      setPickerError('La date de début doit être antérieure à la date de fin.')
+      return
+    }
+    if (pickerDraft.end > t) {
+      setPickerError('La date de fin ne peut pas être dans le futur.')
+      return
+    }
+    if (pickerDraft.start < minIso) {
+      setPickerError('La plage ne peut pas dépasser 2 ans en arrière.')
+      return
+    }
+    setCustomRange({ start: pickerDraft.start, end: pickerDraft.end })
+    setPeriod('custom')
+    setShowCustomPicker(false)
   }
 
   // ── Filtres dérivés ────────────────────────────────────────────────────────
@@ -166,23 +245,26 @@ export default function PerformancesClient({ programId, program, metrics }: Prop
   [metrics, canal])
 
   const chartMetrics = useMemo(() => {
-    const cutoff = getCutoff(period)
+    if (period === 'custom' && customRange) {
+      return canalMetrics.filter(m => m.date >= customRange.start && m.date <= customRange.end)
+    }
+    const cutoff = getCutoff(period as Exclude<Period, 'custom'>)
     return cutoff ? canalMetrics.filter(m => m.date >= cutoff) : canalMetrics
-  }, [canalMetrics, period])
+  }, [canalMetrics, period, customRange])
 
-  // ── KPIs ──────────────────────────────────────────────────────────────────
+  // ── KPIs — branchés sur chartMetrics (période active) ─────────────────────
 
   const kpis = useMemo(() => {
-    const t = agg(canalMetrics)
+    const t = agg(chartMetrics)
     return {
       spend:  t.spend,
       leads:  t.leads,
       cpl:    t.leads > 0 ? t.spend / t.leads : null,
       ctr:    t.impr > 0 ? (t.clicks / t.impr) * 100 : null,
     }
-  }, [canalMetrics])
+  }, [chartMetrics])
 
-  // ── Données du graphique (groupées par date) ───────────────────────────────
+  // ── Données du graphique ───────────────────────────────────────────────────
 
   const chartData = useMemo(() => {
     const map = new Map<string, { spend: number; leads: number }>()
@@ -201,29 +283,23 @@ export default function PerformancesClient({ programId, program, metrics }: Prop
 
   const tickInterval = Math.max(0, Math.floor(chartData.length / 6) - 1)
 
-  // ── Split canaux (toujours global pour les cartes de canal) ───────────────
+  // ── Split canaux (toujours global, indépendant de la période) ─────────────
 
   const googleAgg = useMemo(() => agg(metrics.filter(m => m.platform === 'google')), [metrics])
   const metaAgg   = useMemo(() => agg(metrics.filter(m => m.platform === 'meta')), [metrics])
 
-  // ── Tableau des campagnes (groupé par plateforme) ─────────────────────────
+  // ── Tableau des campagnes ─────────────────────────────────────────────────
 
   const campaignRows = useMemo(() => {
     return (['google', 'meta'] as const).map(p => {
       const t = agg(metrics.filter(m => m.platform === p))
-      return {
-        id: p,
-        name: p === 'google' ? 'Google Ads' : 'Meta Ads',
-        platform: p,
-        ...t,
-      }
+      return { id: p, name: p === 'google' ? 'Google Ads' : 'Meta Ads', platform: p, ...t }
     }).filter(r => r.spend > 0 || r.leads > 0)
   }, [metrics])
 
   // ── Évolution hebdomadaire ────────────────────────────────────────────────
 
   const weeklyRows = useMemo(() => {
-    // Breakdown Google / Meta toujours sur toutes les données
     const allWeek = new Map<string, { google: number; meta: number }>()
     for (const m of metrics) {
       if (!m.date) continue
@@ -234,7 +310,6 @@ export default function PerformancesClient({ programId, program, metrics }: Prop
         meta:   cur.meta   + (m.platform === 'meta'   ? m.spend : 0),
       })
     }
-    // Total / contacts / CPL filtrés par canal
     const canalWeek = new Map<string, { spend: number; leads: number }>()
     for (const m of canalMetrics) {
       if (!m.date) continue
@@ -242,7 +317,6 @@ export default function PerformancesClient({ programId, program, metrics }: Prop
       const cur = canalWeek.get(key) ?? { spend: 0, leads: 0 }
       canalWeek.set(key, { spend: cur.spend + m.spend, leads: cur.leads + m.platform_conversions })
     }
-
     const keys = new Set([...allWeek.keys(), ...canalWeek.keys()])
     return [...keys]
       .sort((a, b) => b.localeCompare(a))
@@ -341,28 +415,89 @@ export default function PerformancesClient({ programId, program, metrics }: Prop
         </div>
 
         {/* Période */}
-        <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-white text-sm font-medium shadow-sm">
-          {([
-            { val: '7d',  label: '7 jours' },
-            { val: '30d', label: '30 jours' },
-            { val: '90d', label: '90 jours' },
-            { val: 'all', label: 'Depuis le début' },
-          ] as { val: Period; label: string }[]).map((opt, i) => (
+        <div className="flex flex-wrap items-center gap-2">
+
+          {/* Boutons prédéfinis */}
+          <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-white text-sm font-medium shadow-sm">
+            {([
+              { val: '7d',  label: '7 jours' },
+              { val: '30d', label: '30 jours' },
+              { val: '90d', label: '90 jours' },
+              { val: 'all', label: 'Depuis le début' },
+            ] as { val: Period; label: string }[]).map((opt, i) => (
+              <button
+                key={opt.val}
+                type="button"
+                onClick={() => { setPeriod(opt.val); setShowCustomPicker(false) }}
+                className={cn(
+                  i > 0 && 'border-l border-slate-200',
+                  'px-4 py-2 transition-colors',
+                  period === opt.val
+                    ? 'bg-slate-800 text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Bouton période personnalisée + popover */}
+          <div className="relative" ref={pickerRef}>
             <button
-              key={opt.val}
               type="button"
-              onClick={() => setPeriod(opt.val)}
+              onClick={() => setShowCustomPicker(v => !v)}
               className={cn(
-                i > 0 && 'border-l border-slate-200',
-                'px-4 py-2 transition-colors',
-                period === opt.val
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-600 hover:bg-slate-50'
+                'flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                period === 'custom'
+                  ? 'border-slate-700 bg-slate-800 text-white'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
               )}
             >
-              {opt.label}
+              <CalendarDays className="h-3.5 w-3.5" />
+              {period === 'custom' && customRange
+                ? `${fmtDateShort(customRange.start)} → ${fmtDateShort(customRange.end)}`
+                : 'Personnalisée'}
             </button>
-          ))}
+
+            {showCustomPicker && (
+              <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+                <p className="mb-3 text-xs font-semibold text-slate-700">Plage personnalisée</p>
+                <div className="space-y-2">
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-500">Du</label>
+                    <input
+                      type="date"
+                      value={pickerDraft.start}
+                      max={today()}
+                      onChange={e => setPickerDraft(v => ({ ...v, start: e.target.value }))}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-500">Au</label>
+                    <input
+                      type="date"
+                      value={pickerDraft.end}
+                      max={today()}
+                      onChange={e => setPickerDraft(v => ({ ...v, end: e.target.value }))}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  {pickerError && (
+                    <p className="text-xs text-red-500">{pickerError}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleApplyCustom}
+                    className="mt-1 w-full rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+                  >
+                    Appliquer
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -439,7 +574,7 @@ export default function PerformancesClient({ programId, program, metrics }: Prop
         )}
       </div>
 
-      {/* ── Cartes canaux (toujours global) ── */}
+      {/* ── Cartes canaux (toujours sur toutes les données) ── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <CanalSplitCard
           label="Google Ads"

@@ -6,6 +6,11 @@ import { GOOGLE_ADS_API_VERSION } from './config'
 
 const MCC_ID = '8667313568'
 
+export interface DateRange {
+  startDate?: string  // 'YYYY-MM-DD'
+  endDate?: string    // 'YYYY-MM-DD'
+}
+
 function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -17,6 +22,26 @@ function createAdminClient() {
   return createSupabaseClient(url, key, {
     auth: { persistSession: false },
   })
+}
+
+// Construit la clause date du WHERE GAQL selon la plage demandée
+function buildDateFilter(dateRange?: DateRange): string {
+  if (!dateRange?.startDate) {
+    return 'segments.date DURING LAST_30_DAYS'
+  }
+  const end = dateRange.endDate ?? new Date().toISOString().split('T')[0]
+  return `segments.date BETWEEN '${dateRange.startDate}' AND '${end}'`
+}
+
+// Renvoie la date de coupure du DELETE (borne inférieure incluse)
+function buildDeleteRange(dateRange?: DateRange): { from: string; to: string } {
+  if (dateRange?.startDate) {
+    const to = dateRange.endDate ?? new Date().toISOString().split('T')[0]
+    return { from: dateRange.startDate, to }
+  }
+  const d = new Date()
+  d.setDate(d.getDate() - 30)
+  return { from: d.toISOString().split('T')[0], to: new Date().toISOString().split('T')[0] }
 }
 
 // Une ligne brute telle que renvoyée par l'API (une campagne, un jour)
@@ -51,9 +76,9 @@ async function fetchGoogleAdsDailyMetrics(
   customerId: string,
   campaignIds: string[],
   accessToken: string,
-  developerToken: string
+  developerToken: string,
+  dateFilter: string
 ): Promise<RawRow[]> {
-  // campaign.id IN (...) — IDs numériques sans guillemets dans GAQL
   const idList = campaignIds.join(', ')
 
   const query = `
@@ -65,12 +90,12 @@ async function fetchGoogleAdsDailyMetrics(
       metrics.impressions,
       metrics.conversions
     FROM campaign
-    WHERE segments.date DURING LAST_30_DAYS
+    WHERE ${dateFilter}
       AND campaign.id IN (${idList})
     ORDER BY segments.date DESC
   `
 
-  console.log(`[syncGoogleAds] Appel API — customer: ${customerId}, campaigns: [${idList}]`)
+  console.log(`[syncGoogleAds] Appel API — customer: ${customerId}, filtre: ${dateFilter}, campaigns: [${idList}]`)
 
   const res = await fetch(
     `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerId}/googleAds:search`,
@@ -118,8 +143,11 @@ async function fetchGoogleAdsDailyMetrics(
 
 // ─── Server Action principale ─────────────────────────────────────────────────
 
-export async function syncGoogleAds(programId?: string): Promise<SyncResult> {
-  console.log(`[syncGoogleAds] Démarrage — programId: ${programId ?? '(aucun)'}`)
+export async function syncGoogleAds(
+  programId?: string,
+  dateRange?: DateRange
+): Promise<SyncResult> {
+  console.log(`[syncGoogleAds] Démarrage — programId: ${programId ?? '(aucun)'}, dateRange:`, dateRange)
 
   try {
     const { accessToken, developerToken } = await getGoogleAccessToken()
@@ -179,10 +207,8 @@ export async function syncGoogleAds(programId?: string): Promise<SyncResult> {
 
     console.log(`[syncGoogleAds] ${byAccount.size} compte(s) Google Ads à interroger`)
 
-    // Cutoff pour le nettoyage : correspond au début de LAST_30_DAYS
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - 30)
-    const cutoffStr = cutoff.toISOString().split('T')[0]
+    const dateFilter   = buildDateFilter(dateRange)
+    const deleteRange  = buildDeleteRange(dateRange)
 
     let totalInserted = 0
 
@@ -190,14 +216,16 @@ export async function syncGoogleAds(programId?: string): Promise<SyncResult> {
       const campaignIds      = campaigns.map((c) => c.campaignId)
       const campaignToProgId = new Map(campaigns.map((c) => [c.campaignId, c.programmeId]))
 
-      const rawRows = await fetchGoogleAdsDailyMetrics(customerId, campaignIds, accessToken, developerToken)
+      const rawRows = await fetchGoogleAdsDailyMetrics(
+        customerId, campaignIds, accessToken, developerToken, dateFilter
+      )
 
       if (rawRows.length === 0) {
         console.log(`[syncGoogleAds] Aucune donnée pour le compte ${customerId}, on passe`)
         continue
       }
 
-      // 3. Agréger par (programme_id, date) — fusion multi-campagnes
+      // 3. Agréger par (programme_id, date)
       const byProgDate = new Map<string, AggregatedRow>()
 
       for (const row of rawRows) {
@@ -231,15 +259,16 @@ export async function syncGoogleAds(programId?: string): Promise<SyncResult> {
       }
 
       for (const [progId, aggRows] of byProgramme.entries()) {
-        console.log(`[syncGoogleAds] Programme ${progId} — ${aggRows.length} jour(s) à insérer`)
+        console.log(`[syncGoogleAds] Programme ${progId} — ${aggRows.length} jour(s) à insérer (plage: ${deleteRange.from} → ${deleteRange.to})`)
 
-        // 4. Supprimer les métriques google de la période pour éviter les fantômes
+        // 4. Supprimer les métriques google sur la plage exacte resynchronisée
         const { error: delErr } = await supabase
           .from('daily_ad_metrics')
           .delete()
           .eq('program_id', progId)
           .eq('platform', 'google')
-          .gte('date', cutoffStr)
+          .gte('date', deleteRange.from)
+          .lte('date', deleteRange.to)
 
         if (delErr) {
           console.error(`[syncGoogleAds] Erreur suppression (${progId}):`, delErr.message)
