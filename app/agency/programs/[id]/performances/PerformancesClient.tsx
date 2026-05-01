@@ -9,8 +9,8 @@ import {
 } from 'recharts'
 import { cn } from '@/lib/utils'
 import { TrendingUp, MousePointerClick, Users, Wallet, RefreshCw, CalendarDays } from 'lucide-react'
-import { syncGoogleAds } from '@/app/actions/syncGoogleAds'
-import type { DateRange } from '@/app/actions/syncGoogleAds'
+import { syncAllPlatforms } from '@/app/actions/syncAllPlatforms'
+import type { DateRange } from '@/app/actions/syncAllPlatforms'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -204,7 +204,7 @@ export default function PerformancesClient({ programId, program, metrics }: Prop
     setSyncing(true)
     setSyncMsg(null)
     const dateRange = periodToDateRange(period, customRange)
-    const result = await syncGoogleAds(programId, dateRange)
+    const result = await syncAllPlatforms(programId, dateRange)
     setSyncMsg({ ok: result.success, text: result.message })
     setSyncing(false)
     if (result.success) router.refresh()
@@ -378,7 +378,7 @@ export default function PerformancesClient({ programId, program, metrics }: Prop
           )}
         >
           <RefreshCw className={cn('h-4 w-4', syncing && 'animate-spin')} />
-          {syncing ? 'Synchronisation…' : 'Synchroniser Google Ads'}
+          {syncing ? 'Synchronisation…' : 'Synchroniser tout'}
         </button>
         {syncMsg && (
           <p className={cn('text-sm', syncMsg.ok ? 'text-green-700' : 'text-red-600')}>
