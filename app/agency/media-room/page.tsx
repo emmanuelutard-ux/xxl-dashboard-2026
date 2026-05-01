@@ -4,6 +4,8 @@ import AgencyDashboardClient, { AgencyProgramData } from '@/components/AgencyDas
 
 export const dynamic = 'force-dynamic'
 
+const PERIOD_START = '2026-01-01'
+
 export default async function AgencyDashboardPage() {
     const cookieStore = await cookies()
     const supabase = createServerClient(
@@ -21,7 +23,7 @@ export default async function AgencyDashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return <div>Access Denied</div>
 
-    // 2. Fetch Programs with Date Columns
+    // 2. Fetch Programs
     const { data: programs, error: programsError } = await supabase
         .from('real_estate_programs')
         .select('*')
@@ -31,33 +33,31 @@ export default async function AgencyDashboardPage() {
         return <div className="p-10 text-red-500">Erreur chargement programmes: {programsError?.message}</div>
     }
 
-    // 3. Fetch & Aggregate Metrics (Platform AND GA4)
+    const periodEnd = new Date().toISOString().split('T')[0]
+
+    // 3. Fetch & Aggregate Metrics depuis PERIOD_START uniquement
     const portfolio: AgencyProgramData[] = await Promise.all(programs.map(async (p) => {
         const { data: metrics } = await supabase
             .from('daily_ad_metrics')
             .select('spend, platform_conversions, ga4_conversions')
             .eq('program_id', p.id)
+            .gte('date', PERIOD_START)
 
-        const spent = metrics?.reduce((sum, m) => sum + (Number(m.spend) || 0), 0) || 0
+        const spent          = metrics?.reduce((sum, m) => sum + (Number(m.spend) || 0), 0) || 0
         const leads_platform = metrics?.reduce((sum, m) => sum + (Number(m.platform_conversions) || 0), 0) || 0
-        const leads_ga4 = metrics?.reduce((sum, m) => sum + (Number(m.ga4_conversions) || 0), 0) || 0
+        const leads_ga4      = metrics?.reduce((sum, m) => sum + (Number(m.ga4_conversions) || 0), 0) || 0
 
         return {
-            id: p.id,
-            name: p.name,
-            status: p.status,
+            id:           p.id,
+            name:         p.name,
+            status:       p.status,
             total_budget: Number(p.total_budget || 0),
-            start_date: p.start_date || null,
-            end_date: p.end_date || null,
-            metrics: {
-                spent,
-                leads_platform,
-                leads_ga4
-            }
+            start_date:   p.start_date || null,
+            end_date:     p.end_date   || null,
+            metrics:      { spent, leads_platform, leads_ga4 },
         }
     }))
 
-    // Delegate rendering to Client Component with Prepared Data
     return (
         <div className="min-h-screen bg-slate-50 p-6 md:p-8">
             <div className="max-w-7xl mx-auto space-y-8">
@@ -68,7 +68,11 @@ export default async function AgencyDashboardPage() {
                     </div>
                 </header>
 
-                <AgencyDashboardClient programs={portfolio} />
+                <AgencyDashboardClient
+                    programs={portfolio}
+                    periodStart={PERIOD_START}
+                    periodEnd={periodEnd}
+                />
             </div>
         </div>
     )
