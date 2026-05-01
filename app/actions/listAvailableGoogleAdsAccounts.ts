@@ -40,16 +40,21 @@ export async function listAvailableGoogleAdsAccounts(): Promise<ListAvailableAcc
 
     const supabase = createAdminClient()
 
-    // Appels en parallèle : liste des customers accessibles + comptes déjà liés en base
-    const [accessibleRes, { data: linkedRows, error: dbErr }] = await Promise.all([
+    // Appels en parallèle : sous-comptes du MCC via GAQL + comptes déjà liés en base
+    const [mccRes, { data: linkedRows, error: dbErr }] = await Promise.all([
       fetch(
-        `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers:listAccessibleCustomers`,
+        `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${MCC_ID}/googleAds:search`,
         {
-          method: 'GET',
+          method: 'POST',
           headers: {
-            'Authorization':   `Bearer ${accessToken}`,
-            'developer-token': developerToken.trim(),
+            'Authorization':     `Bearer ${accessToken}`,
+            'developer-token':   developerToken.trim(),
+            'login-customer-id': MCC_ID,
+            'Content-Type':      'application/json',
           },
+          body: JSON.stringify({
+            query: "SELECT customer_client.client_customer, customer_client.descriptive_name, customer_client.id, customer_client.manager, customer_client.status FROM customer_client WHERE customer_client.status = 'ENABLED'",
+          }),
           cache: 'no-store',
         }
       ),
@@ -59,16 +64,16 @@ export async function listAvailableGoogleAdsAccounts(): Promise<ListAvailableAcc
         .not('programme_id', 'is', null),
     ])
 
-    console.log(`[listAvailableGoogleAdsAccounts] listAccessibleCustomers — status: ${accessibleRes.status}`)
+    console.log(`[listAvailableGoogleAdsAccounts] customer_client GAQL — status: ${mccRes.status}`)
 
-    if (!accessibleRes.ok) {
-      const raw = await accessibleRes.text()
+    if (!mccRes.ok) {
+      const raw = await mccRes.text()
       if (raw.trimStart().startsWith('<')) {
         console.error('[listAvailableGoogleAdsAccounts] Réponse HTML reçue')
-        return { success: false, error: `L'API Google Ads a renvoyé une page HTML (status ${accessibleRes.status}). Vérifiez la version de l'API.` }
+        return { success: false, error: `L'API Google Ads a renvoyé une page HTML (status ${mccRes.status}). Vérifiez la version de l'API.` }
       }
-      console.error('[listAvailableGoogleAdsAccounts] Erreur listAccessibleCustomers:', raw.slice(0, 500))
-      return { success: false, error: `Erreur API Google Ads (status ${accessibleRes.status}).` }
+      console.error('[listAvailableGoogleAdsAccounts] Erreur GAQL MCC:', raw.slice(0, 500))
+      return { success: false, error: `Erreur API Google Ads (status ${mccRes.status}).` }
     }
 
     if (dbErr) {
@@ -76,11 +81,9 @@ export async function listAvailableGoogleAdsAccounts(): Promise<ListAvailableAcc
       return { success: false, error: `Erreur lecture base de données : ${dbErr.message}` }
     }
 
-    const accessibleData = await accessibleRes.json()
-    const resourceNames: string[] = accessibleData.resourceNames ?? []
-    const customerIds = resourceNames.map((r) => r.replace('customers/', ''))
-
-    console.log(`[listAvailableGoogleAdsAccounts] ${customerIds.length} customer(s) accessible(s)`)
+    const mccData = await mccRes.json()
+    const results: unknown[] = mccData.results ?? []
+    console.log(`[listAvailableGoogleAdsAccounts] ${results.length} ligne(s) brutes reçues du MCC`)
 
     // Construire le map des liaisons existantes depuis Supabase
     type LinkedRow = {
@@ -99,60 +102,30 @@ export async function listAvailableGoogleAdsAccounts(): Promise<ListAvailableAcc
       }
     }
 
-    // Récupérer le nom descriptif de chaque customer via GAQL (en parallèle, skip si erreur)
-    const nameResults = await Promise.allSettled(
-      customerIds.map(async (customerId) => {
-        const res = await fetch(
-          `https://googleads.googleapis.com/${GOOGLE_ADS_API_VERSION}/customers/${customerId}/googleAds:search`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization':     `Bearer ${accessToken}`,
-              'developer-token':   developerToken.trim(),
-              'login-customer-id': MCC_ID,
-              'Content-Type':      'application/json',
-            },
-            body: JSON.stringify({
-              query: 'SELECT customer.id, customer.descriptive_name FROM customer LIMIT 1',
-            }),
-            cache: 'no-store',
-          }
-        )
-        if (!res.ok) {
-          const err = await res.text()
-          throw new Error(`HTTP ${res.status}: ${err.slice(0, 100)}`)
-        }
-        const data = await res.json()
-        const result = data.results?.[0]
-        return {
-          customer_id: customerId,
-          nom:         String(result?.customer?.descriptiveName ?? customerId),
-        }
-      })
-    )
+    // Construire la liste des sous-comptes (hors MCC lui-même et sous-MCC)
+    const accounts: AvailableAccount[] = []
 
-    const failures = nameResults.filter((r) => r.status === 'rejected')
-    if (failures.length > 0) {
-      console.warn(`[listAvailableGoogleAdsAccounts] ${failures.length} compte(s) ignoré(s) (inaccessibles)`)
+    for (const item of results) {
+      const r  = item as Record<string, Record<string, unknown>>
+      const cc = r.customerClient ?? {}
+
+      const customerId = String(cc.id ?? '')
+      const isManager  = cc.manager === true
+      const nom        = String(cc.descriptiveName ?? customerId)
+
+      if (!customerId || customerId === MCC_ID || isManager) continue
+
+      const linked = linkedMap.get(customerId)
+      accounts.push({
+        customer_id:           customerId,
+        nom,
+        is_linked:             !!linked,
+        linked_programme_id:   linked?.programme_id,
+        linked_programme_name: linked?.nom_programme,
+      })
     }
 
-    const accounts: AvailableAccount[] = nameResults
-      .filter(
-        (r): r is PromiseFulfilledResult<{ customer_id: string; nom: string }> =>
-          r.status === 'fulfilled'
-      )
-      .map((r) => {
-        const linked = linkedMap.get(r.value.customer_id)
-        return {
-          customer_id:           r.value.customer_id,
-          nom:                   r.value.nom,
-          is_linked:             !!linked,
-          linked_programme_id:   linked?.programme_id,
-          linked_programme_name: linked?.nom_programme,
-        }
-      })
-
-    console.log(`[listAvailableGoogleAdsAccounts] ${accounts.length} compte(s) retourné(s)`)
+    console.log(`[listAvailableGoogleAdsAccounts] ${accounts.length} sous-compte(s) retourné(s)`)
 
     return { success: true, accounts }
 
