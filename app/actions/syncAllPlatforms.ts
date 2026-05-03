@@ -17,12 +17,15 @@ export async function syncAllPlatforms(
     programId?: string,
     dateRange?: DateRange
 ): Promise<SyncAllResult> {
-    console.log(`[syncAllPlatforms] Démarrage — programId: ${programId ?? '(aucun)'}`)
+    console.log(`[sync-all] start programme=${programId ?? '(aucun)'}`)
+    console.log(`[sync-all] launching google + meta in parallel`)
 
     const [google, meta] = await Promise.all([
         syncGoogleAds(programId, dateRange),
         syncMetaAds(programId, dateRange),
     ])
+
+    console.log(`[sync-all] google done success=${google.success} meta done success=${meta.success}`)
 
     const success = google.success || meta.success
 
@@ -30,5 +33,9 @@ export async function syncAllPlatforms(
     parts.push(google.success ? `Google: ${google.inserted} jours` : 'Google: échec')
     parts.push(meta.success   ? `Meta: ${meta.inserted} jours`     : 'Meta: échec')
 
-    return { success, message: parts.join(' · '), google, meta }
+    const result: SyncAllResult = { success, message: parts.join(' · '), google, meta }
+
+    console.log(`[sync-all] returning result: success=${success} message="${result.message}"`)
+
+    return result
 }

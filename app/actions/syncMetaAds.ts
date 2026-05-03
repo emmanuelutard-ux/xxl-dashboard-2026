@@ -7,11 +7,13 @@ import type { DateRange, SyncResult } from './syncGoogleAds'
 
 export type { DateRange }
 
+const MAX_PAGES = 50
+
 function createAdminClient() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!url || !key) {
-        throw new Error('[syncMetaAds] NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY manquant')
+        throw new Error('[meta-sync] NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY manquant')
     }
     return createSupabaseClient(url, key, { auth: { persistSession: false } })
 }
@@ -65,8 +67,15 @@ async function fetchMetaInsights(
 
     let url: string | null = `${META_GRAPH_BASE_URL}/${adAccountId}/insights?${params.toString()}`
     const allRows: InsightsRow[] = []
+    let page = 0
 
     while (url) {
+        if (page >= MAX_PAGES) {
+            console.warn(`[meta-sync] ABORT pagination limit reached (${MAX_PAGES} pages) — account ${adAccountId}`)
+            break
+        }
+
+        page++
         const res  = await fetch(url, { cache: 'no-store' })
         const data = await res.json() as {
             data?:   unknown[]
@@ -78,12 +87,19 @@ async function fetchMetaInsights(
             throw new Error(`Meta Insights API error (${adAccountId}): ${String(data.error?.message ?? res.status)}`)
         }
 
-        for (const row of data.data ?? []) {
+        const pageRows = data.data ?? []
+        const hasNext  = Boolean(data.paging?.next)
+
+        console.log(`[meta-sync] page ${page} received, ${pageRows.length} rows, has_next=${hasNext} — account ${adAccountId}`)
+
+        for (const row of pageRows) {
             allRows.push(row as InsightsRow)
         }
 
-        url = data.paging?.next ?? null
+        url = hasNext ? (data.paging?.next ?? null) : null
     }
+
+    console.log(`[meta-sync] all pages done, total ${allRows.length} insights collected — account ${adAccountId}`)
 
     return allRows
 }
@@ -92,15 +108,17 @@ export async function syncMetaAds(
     programId?: string,
     dateRange?: DateRange
 ): Promise<SyncResult> {
-    console.log(`[syncMetaAds] Démarrage — programId: ${programId ?? '(aucun)'}, dateRange:`, dateRange)
+    console.log(`[meta-sync] start programme=${programId ?? '(aucun)'} dateRange=${JSON.stringify(dateRange ?? {})}`)
 
     try {
         const accessToken = await getMetaAccessToken()
-        const supabase    = createAdminClient()
+        console.log('[meta-sync] token obtained')
+
+        const supabase = createAdminClient()
 
         type CampaignRow = {
-            campaign_id:      string
-            programme_id:     string
+            campaign_id:       string
+            programme_id:      string
             meta_ads_accounts: { ad_account_id: string } | null
         }
 
@@ -117,17 +135,8 @@ export async function syncMetaAds(
         if (campErr) throw new Error(`Erreur lecture meta_ads_campaigns : ${campErr.message}`)
 
         const campaignRows = (rawCampaigns ?? []) as unknown as CampaignRow[]
-        console.log(`[syncMetaAds] ${campaignRows.length} campagne(s) Meta liée(s)`)
 
-        if (campaignRows.length === 0) {
-            return {
-                success: false,
-                message: 'Aucune campagne Meta liée à ce programme. Configurez les liaisons via Gérer les campagnes.',
-                inserted: 0,
-            }
-        }
-
-        // Grouper par ad_account_id (1 appel API par compte publicitaire)
+        // Grouper par ad_account_id pour compter les comptes distincts
         interface AccountGroup {
             adAccountId: string
             campaigns: Array<{ campaignId: string; programmeId: string }>
@@ -145,19 +154,31 @@ export async function syncMetaAds(
             byAccount.set(account.ad_account_id, group)
         }
 
-        console.log(`[syncMetaAds] ${byAccount.size} compte(s) Meta à interroger`)
+        console.log(`[meta-sync] campaigns found: ${campaignRows.length} campaigns across ${byAccount.size} accounts`)
 
-        const timeRange    = buildTimeRange(dateRange)
-        let totalInserted  = 0
+        if (campaignRows.length === 0) {
+            return {
+                success: false,
+                message: 'Aucune campagne Meta liée à ce programme. Configurez les liaisons via Gérer les campagnes.',
+                inserted: 0,
+            }
+        }
+
+        const timeRange   = buildTimeRange(dateRange)
+        let totalInserted = 0
 
         for (const { adAccountId, campaigns } of byAccount.values()) {
             const campaignIds      = campaigns.map((c) => c.campaignId)
             const campaignToProgId = new Map(campaigns.map((c) => [c.campaignId, c.programmeId]))
 
-            const rows = await fetchMetaInsights(adAccountId, campaignIds, timeRange, accessToken)
-            console.log(`[syncMetaAds] ${rows.length} ligne(s) brutes reçues pour ${adAccountId}`)
+            console.log(`[meta-sync] fetching account ${adAccountId} with ${campaignIds.length} campaigns, time_range=${JSON.stringify(timeRange)}`)
 
-            if (rows.length === 0) continue
+            const rows = await fetchMetaInsights(adAccountId, campaignIds, timeRange, accessToken)
+
+            if (rows.length === 0) {
+                console.log(`[meta-sync] no insights for account ${adAccountId}, skipping`)
+                continue
+            }
 
             // Agréger par (programme_id, date)
             interface AggRow {
@@ -191,6 +212,9 @@ export async function syncMetaAds(
                 byProgDate.set(key, existing)
             }
 
+            console.log(`[meta-sync] aggregating into daily_ad_metrics rows`)
+            console.log(`[meta-sync] aggregated: ${byProgDate.size} unique dates`)
+
             // Regrouper par programme pour delete + insert séparés
             const byProgramme = new Map<string, AggRow[]>()
             for (const agg of byProgDate.values()) {
@@ -200,7 +224,7 @@ export async function syncMetaAds(
             }
 
             for (const [progId, aggRows] of byProgramme.entries()) {
-                console.log(`[syncMetaAds] Programme ${progId} — ${aggRows.length} jour(s) (${timeRange.since} → ${timeRange.until})`)
+                console.log(`[meta-sync] DELETE platform=meta date_range=${timeRange.since}→${timeRange.until} programme=${progId}`)
 
                 const { error: delErr } = await supabase
                     .from('daily_ad_metrics')
@@ -211,6 +235,9 @@ export async function syncMetaAds(
                     .lte('date', timeRange.until)
 
                 if (delErr) throw new Error(`Erreur suppression métriques Meta (${progId}) : ${delErr.message}`)
+
+                console.log(`[meta-sync] DELETE done`)
+                console.log(`[meta-sync] INSERT ${aggRows.length} rows — programme ${progId}`)
 
                 const insertData = aggRows.map((r) => ({
                     program_id:           progId,
@@ -230,11 +257,11 @@ export async function syncMetaAds(
                 if (insertErr) throw new Error(`Erreur insert métriques Meta (${progId}) : ${insertErr.message}`)
 
                 totalInserted += aggRows.length
-                console.log(`[syncMetaAds] ${aggRows.length} ligne(s) insérée(s) — programme ${progId}`)
+                console.log(`[meta-sync] INSERT success — ${aggRows.length} rows for programme ${progId}`)
             }
         }
 
-        console.log(`[syncMetaAds] Terminé — ${totalInserted} ligne(s) au total`)
+        console.log(`[meta-sync] DONE success=true daysSynced=${totalInserted}`)
 
         return {
             success:  true,
@@ -244,7 +271,7 @@ export async function syncMetaAds(
 
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Erreur inconnue'
-        console.error('[syncMetaAds] ERREUR:', message)
+        console.error(`[meta-sync] ERREUR catch global: ${message}`)
         return { success: false, message, inserted: 0 }
     }
 }
