@@ -16,14 +16,29 @@ function createAdminClient() {
     return createSupabaseClient(url, key, { auth: { persistSession: false } })
 }
 
+const META_MAX_MONTHS = 37
+
+function metaEarliestDate(): string {
+    const d = new Date()
+    d.setMonth(d.getMonth() - META_MAX_MONTHS)
+    return d.toISOString().slice(0, 10)
+}
+
 function buildTimeRange(dateRange?: DateRange): { since: string; until: string } {
+    const earliest = metaEarliestDate()
+
     if (dateRange?.startDate) {
         const until = dateRange.endDate ?? new Date().toISOString().split('T')[0]
-        return { since: dateRange.startDate, until }
+        const rawSince = dateRange.startDate
+        const since = rawSince < earliest ? earliest : rawSince
+        if (since !== rawSince) {
+            console.log(`[meta-sync] startDate capped from ${rawSince} to ${since}`)
+        }
+        return { since, until }
     }
     const d = new Date()
     d.setDate(d.getDate() - 30)
-    return { since: d.toISOString().split('T')[0], until: new Date().toISOString().split('T')[0] }
+    return { since: d.toISOString().slice(0, 10), until: new Date().toISOString().slice(0, 10) }
 }
 
 function parseLeads(actions: unknown): number {
