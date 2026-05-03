@@ -5,8 +5,6 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { META_GRAPH_BASE_URL } from './config'
 import type { DateRange, SyncResult } from './syncGoogleAds'
 
-export type { DateRange }
-
 const MAX_PAGES = 50
 
 function createAdminClient() {

@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import { TrendingUp, MousePointerClick, Users, Wallet, RefreshCw, CalendarDays } from 'lucide-react'
 import { syncAllPlatforms } from '@/app/actions/syncAllPlatforms'
-import type { DateRange } from '@/app/actions/syncAllPlatforms'
+import type { DateRange } from '@/app/actions/syncGoogleAds'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

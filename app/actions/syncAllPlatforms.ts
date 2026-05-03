@@ -4,8 +4,6 @@ import { syncGoogleAds } from './syncGoogleAds'
 import { syncMetaAds } from './syncMetaAds'
 import type { DateRange, SyncResult } from './syncGoogleAds'
 
-export type { DateRange }
-
 export interface SyncAllResult {
     success: boolean
     message: string
