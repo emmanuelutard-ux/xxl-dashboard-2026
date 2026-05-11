@@ -60,7 +60,7 @@ export default async function AgencyHomePage() {
     supabase.from('profiles').select('full_name').eq('id', user.id).single(),
     supabase
       .from('real_estate_programs')
-      .select('id, name, status, total_budget, budget_google, budget_meta, start_date, end_date, target_cpl, location')
+      .select('id, name, status, budget_google, budget_meta, start_date, end_date, target_cpl, location')
       .neq('status', 'archived')
       .order('created_at', { ascending: false }),
     supabase
@@ -102,10 +102,9 @@ export default async function AgencyHomePage() {
   // Build enriched program rows
   const programData = (programs ?? []).map(p => {
     const pm          = metricsByProgram.get(p.id) ?? { google: { spend: 0, contacts: 0 }, meta: { spend: 0, contacts: 0 } }
-    const timePct     = getTimePct(p.start_date as string | null, p.end_date as string | null)
-    const totalBudget = Number(p.total_budget) || 0
-    const gBudget     = Number(p.budget_google) > 0 ? Number(p.budget_google) : totalBudget
-    const mBudget     = Number(p.budget_meta)   > 0 ? Number(p.budget_meta)   : totalBudget
+    const timePct = getTimePct(p.start_date as string | null, p.end_date as string | null)
+    const gBudget = Number(p.budget_google) || 0
+    const mBudget = Number(p.budget_meta)   || 0
 
     const gBudgetPct = gBudget > 0 ? clamp(Math.round((pm.google.spend / gBudget) * 100), 0, 100) : 0
     const mBudgetPct = mBudget > 0 ? clamp(Math.round((pm.meta.spend   / mBudget) * 100), 0, 100) : 0
@@ -141,8 +140,8 @@ export default async function AgencyHomePage() {
     }
   })
 
-  // Portfolio KPIs
-  const portfolioTotalBudget   = (programs ?? []).reduce((s, p) => s + (Number(p.total_budget) || 0), 0)
+  // Portfolio KPIs — budget = sum(budget_google + budget_meta) per program
+  const portfolioTotalBudget   = (programs ?? []).reduce((s, p) => s + (Number(p.budget_google) || 0) + (Number(p.budget_meta) || 0), 0)
   const portfolioTotalSpend    = programData.reduce((s, p) => s + p.totalSpend, 0)
   const portfolioTotalContacts = programData.reduce((s, p) => s + p.totalContacts, 0)
   const portfolioCPL           = portfolioTotalContacts > 0 ? portfolioTotalSpend / portfolioTotalContacts : null
@@ -197,7 +196,7 @@ export default async function AgencyHomePage() {
     <div className="flex flex-col h-full">
 
       {/* ── TopBar ── */}
-      <header className="flex items-center justify-between px-6 py-3.5 border-b border-sand-200 bg-white shrink-0">
+      <header className="flex items-center justify-between pl-14 pr-4 md:px-6 py-3.5 border-b border-sand-200 bg-white shrink-0">
         <div>
           <div className="text-xs text-sand-500 mb-0.5">{breadcrumb}</div>
           <div className="text-lg font-semibold text-sand-900">Bonjour {firstName}</div>
