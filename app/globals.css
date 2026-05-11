@@ -75,3 +75,85 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── Design System tokens (XXL Dashboard 2026) ──────────────────────
+   Variables CSS brutes du handoff. Coexistent avec les vars shadcn
+   sans conflit (nommage distinct).
+   ─────────────────────────────────────────────────────────────────── */
+:root {
+  /* Neutres chauds */
+  --sand-50:  #FBF9F6;
+  --sand-100: #F5F2EC;
+  --sand-200: #ECE7DD;
+  --sand-300: #DCD4C4;
+  --sand-400: #B8AC95;
+  --sand-500: #8B7E66;
+  --sand-600: #5C5240;
+  --sand-700: #3D362A;
+  --sand-800: #26221B;
+  --sand-900: #16140F;
+
+  /* Deep Blue — accent primaire */
+  --indigo-50:  #EAF2F7;
+  --indigo-100: #CCDFEA;
+  --indigo-300: #6FA5BD;
+  --indigo-500: #1F6E8C;
+  --indigo-600: #023047;
+  --indigo-700: #01233A;
+  --indigo-900: #01182A;
+
+  /* Sky blue — secondaire */
+  --sky-50:  #F0F8FC;
+  --sky-100: #DDEEF6;
+  --sky-300: #8ECAE6;
+  --sky-500: #5BB4D8;
+  --sky-700: #2E8AB0;
+
+  /* Tiger Orange — accent chaleureux */
+  --terra-50:  #FFEFDC;
+  --terra-100: #FFDBB0;
+  --terra-300: #FFB770;
+  --terra-500: #FB8500;
+  --terra-600: #D86F00;
+  --terra-700: #A35200;
+
+  /* Flame amber */
+  --flame-50:  #FFF6DC;
+  --flame-100: #FFE7A6;
+  --flame-300: #FFCB58;
+  --flame-500: #FFB703;
+  --flame-600: #D89900;
+  --flame-700: #A37200;
+
+  /* Sémantiques */
+  --emerald-50:  #ECF8F1;
+  --emerald-100: #D2EFDD;
+  --emerald-500: #2F9E63;
+  --emerald-700: #1F6E45;
+
+  --amber-50:  #FDF5E6;
+  --amber-100: #FAE8C2;
+  --amber-500: #D89030;
+  --amber-700: #8C5A18;
+
+  --rose-50:  #FCEEEE;
+  --rose-100: #F8D6D6;
+  --rose-500: #D04848;
+  --rose-700: #8E2A2A;
+
+  /* Radii */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+
+  /* Shadows sand-based */
+  --shadow-sm: 0 1px 2px rgba(38, 34, 27, 0.04);
+  --shadow-md: 0 2px 8px rgba(38, 34, 27, 0.06), 0 1px 2px rgba(38, 34, 27, 0.04);
+  --shadow-lg: 0 8px 24px rgba(38, 34, 27, 0.08), 0 2px 6px rgba(38, 34, 27, 0.04);
+
+  /* Espacements (référence) */
+  --s-1: 4px;   --s-2: 8px;   --s-3: 12px;  --s-4: 16px;
+  --s-5: 20px;  --s-6: 24px;  --s-8: 32px;  --s-10: 40px;
+  --s-12: 48px; --s-16: 64px; --s-20: 80px;
+}
