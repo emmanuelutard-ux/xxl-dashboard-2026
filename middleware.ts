@@ -67,9 +67,9 @@ export async function middleware(request: NextRequest) {
             if (role === "client") {
                 return NextResponse.redirect(new URL("/client/dashboard", request.url));
             } else if (role === "agency") {
-                return NextResponse.redirect(new URL("/agency/media-room", request.url));
+                return NextResponse.redirect(new URL("/agency", request.url));
             } else if (role === "expert") {
-                return NextResponse.redirect(new URL("/agency/media-room", request.url));
+                return NextResponse.redirect(new URL("/agency", request.url));
             }
         }
     }

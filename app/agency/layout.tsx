@@ -1,12 +1,12 @@
-import AgencyNav from '@/components/AgencyNav'
+import AgencySidebar from '@/components/AgencySidebar'
 
 export default function AgencyLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
-      <AgencyNav />
-      <div className="flex-1 overflow-y-auto">
+    <div className="flex h-screen overflow-hidden bg-sand-50">
+      <AgencySidebar />
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {children}
-      </div>
+      </main>
     </div>
   )
 }
