@@ -24,6 +24,7 @@ export interface BriefV2Data {
   landing_page_url: string
   lp_not_ready: boolean
   crm_provider: 'unlatch' | 'adlead' | 'google_sheets' | 'aucun' | 'autre'
+  ai_plan?: Record<string, unknown> | null
 }
 
 export async function createProgramFromBrief(data: BriefV2Data): Promise<{
@@ -67,6 +68,7 @@ export async function createProgramFromBrief(data: BriefV2Data): Promise<{
     meta_end:                     data.meta_end,
     lp_not_ready:                 data.lp_not_ready,
     notes:                        data.notes,
+    ai_plan:                      data.ai_plan ?? null,
     // defaults pour compatibilité avec l'ancien brief_data
     lp_provider:                  'promoteur',
     pixel_meta_status:            'a_creer',

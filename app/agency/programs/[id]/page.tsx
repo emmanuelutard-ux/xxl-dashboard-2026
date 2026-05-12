@@ -12,8 +12,9 @@ import { Tag }          from '@/components/ds/Tag'
 import { PacingBar }    from '@/components/ds/PacingBar'
 import { ChannelLogo }  from '@/components/ds/ChannelLogo'
 import { AlertCallout } from '@/components/ds/AlertCallout'
-import TabBar      from './TabBar'
-import CanalPicker from './CanalPicker'
+import TabBar        from './TabBar'
+import CanalPicker   from './CanalPicker'
+import PlanMediaTab  from './PlanMediaTab'
 
 export const dynamic = 'force-dynamic'
 
@@ -534,8 +535,18 @@ export default async function ProgramDetailPage({
             </div>
           )}
 
-          {/* ── Placeholders autres onglets ── */}
-          {tab !== 'performance' && (
+          {/* ── Onglet Plan média ── */}
+          {tab === 'plan' && (
+            <PlanMediaTab
+              briefData={brief}
+              budgetGoogle={budgetGoogle}
+              budgetMeta={budgetMeta}
+              hasBrs={Boolean(program.has_brs)}
+            />
+          )}
+
+          {/* ── Placeholders onglets non implémentés ── */}
+          {(tab === 'campagnes' || tab === 'brief' || tab === 'bilan') && (
             <div className="rounded-[10px] border border-dashed border-sand-300 bg-white py-16 text-center">
               <p className="text-[13px] font-medium text-sand-500">Section en cours de construction</p>
               <p className="mt-1 text-[12px] text-sand-400">Disponible dans une prochaine mise à jour.</p>
