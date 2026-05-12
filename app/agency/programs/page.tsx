@@ -181,7 +181,7 @@ export default async function ProgramsListPage({
           </div>
         </div>
         <Link
-          href="/agency/programs/new"
+          href="/agency/briefs/nouveau"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-ds-md bg-indigo-600 text-white border border-indigo-600 hover:bg-indigo-700 transition-colors whitespace-nowrap"
         >
           + Nouveau brief
@@ -202,7 +202,7 @@ export default async function ProgramsListPage({
               <p className="text-[13px] font-medium text-sand-600">Aucun programme dans cette catégorie</p>
               <p className="mt-1 text-[12px] text-sand-400">Modifiez le filtre ou créez un nouveau brief.</p>
               <Link
-                href="/agency/programs/new"
+                href="/agency/briefs/nouveau"
                 className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-ds-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
               >
                 + Nouveau brief
