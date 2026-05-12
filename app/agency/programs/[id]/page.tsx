@@ -214,8 +214,7 @@ export default async function ProgramDetailPage({
       start_date, end_date,
       target_cpl,
       brief_data,
-      created_at,
-      updated_at
+      created_at
     `)
     .eq('id', id)
     .single()
@@ -598,7 +597,6 @@ export default async function ProgramDetailPage({
                 budget_meta:   budgetMeta,
                 status:        program.status,
                 created_at:    program.created_at as string | null | undefined,
-                updated_at:    program.updated_at as string | null | undefined,
               }}
             />
           )}
