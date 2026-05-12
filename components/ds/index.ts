@@ -5,6 +5,7 @@ export { SparkLine }        from './SparkLine'
 export { KPI }              from './KPI'
 export { PacingBar }        from './PacingBar'
 export { ChannelPacingRow } from './ChannelPacingRow'
+export { AlertCallout }    from './AlertCallout'
 
 export type { TagVariant }    from './Tag'
 export type { ButtonVariant, ButtonSize } from './Button'
