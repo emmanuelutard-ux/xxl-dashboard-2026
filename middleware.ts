@@ -31,6 +31,12 @@ export async function middleware(request: NextRequest) {
         }
     );
 
+    // ⚠️ DEMO MODE - DO NOT MERGE - bypass auth on /client/demo for visual demo
+    if (request.nextUrl.pathname === "/client/demo" ||
+        request.nextUrl.pathname.startsWith("/client/demo/")) {
+        return response;
+    }
+
     const {
         data: { user },
     } = await supabase.auth.getUser();
