@@ -1,6 +1,7 @@
 'use server'
 
-import { createClient } from '@/lib/supabase'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 
 export interface BriefV2Data {
@@ -30,7 +31,26 @@ export async function createProgramFromBrief(data: BriefV2Data): Promise<{
   programId?: string
   error?: string
 }> {
-  const supabase = createClient()
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          } catch {}
+        },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Non authentifié' }
 
   const start_date = data.google_start || data.meta_start || null
   const end_date   = data.google_end   || data.meta_end   || null
