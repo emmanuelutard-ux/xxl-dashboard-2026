@@ -12,9 +12,12 @@ import { Tag }          from '@/components/ds/Tag'
 import { PacingBar }    from '@/components/ds/PacingBar'
 import { ChannelLogo }  from '@/components/ds/ChannelLogo'
 import { AlertCallout } from '@/components/ds/AlertCallout'
-import TabBar        from './TabBar'
-import CanalPicker   from './CanalPicker'
-import PlanMediaTab  from './PlanMediaTab'
+import TabBar           from './TabBar'
+import CanalPicker      from './CanalPicker'
+import PlanMediaTab     from './PlanMediaTab'
+import BriefTab         from './BriefTab'
+import CampagnesTab     from './CampagnesTab'
+import BilanTab         from './BilanTab'
 
 export const dynamic = 'force-dynamic'
 
@@ -172,15 +175,19 @@ export default async function ProgramDetailPage({
   searchParams,
 }: {
   params:       Promise<{ id: string }>
-  searchParams: Promise<{ tab?: string; canal?: string }>
+  searchParams: Promise<{ tab?: string; canal?: string; period?: string }>
 }) {
   const { id }                 = await params
-  const { tab: rawTab, canal: rawCanal } = await searchParams
+  const { tab: rawTab, canal: rawCanal, period: rawPeriod } = await searchParams
 
   const tab: TabKey   = (['performance', 'plan', 'campagnes', 'brief', 'bilan'] as TabKey[]).includes(rawTab as TabKey)
     ? rawTab as TabKey : 'performance'
   const canal: CanalKey = (['global', 'google', 'meta'] as CanalKey[]).includes(rawCanal as CanalKey)
     ? rawCanal as CanalKey : 'global'
+
+  type PeriodKey = '7j' | '30j' | '90j' | 'total'
+  const period: PeriodKey = (['7j', '30j', '90j', 'total'] as PeriodKey[]).includes(rawPeriod as PeriodKey)
+    ? rawPeriod as PeriodKey : 'total'
 
   const cookieStore = await cookies()
   const supabase = createServerClient(
@@ -206,7 +213,9 @@ export default async function ProgramDetailPage({
       has_brs, lot_count,
       start_date, end_date,
       target_cpl,
-      brief_data
+      brief_data,
+      created_at,
+      updated_at
     `)
     .eq('id', id)
     .single()
@@ -266,6 +275,29 @@ export default async function ProgramDetailPage({
   }
   const googleKpis = platformKpis('google')
   const metaKpis   = platformKpis('meta')
+
+  // ── Campagnes (fetched only when tab is active) ──────────────────────────────
+  const [googleCampaignsRaw, metaCampaignsRaw] = tab === 'campagnes'
+    ? await Promise.all([
+        supabase
+          .from('google_ads_campaigns')
+          .select('id, nom, type, is_active')
+          .eq('programme_id', id)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('meta_ads_campaigns')
+          .select('id, nom, objective, is_active')
+          .eq('programme_id', id)
+          .order('created_at', { ascending: true }),
+      ])
+    : [{ data: [] }, { data: [] }]
+
+  const googleCampaigns = (googleCampaignsRaw.data ?? []) as {
+    id: string; nom: string | null; type: string | null; is_active: boolean | null
+  }[]
+  const metaCampaigns = (metaCampaignsRaw.data ?? []) as {
+    id: string; nom: string | null; objective: string | null; is_active: boolean | null
+  }[]
 
   // ── Pacing ───────────────────────────────────────────────────────────────────
   let timePct   = 0
@@ -545,12 +577,41 @@ export default async function ProgramDetailPage({
             />
           )}
 
-          {/* ── Placeholders onglets non implémentés ── */}
-          {(tab === 'campagnes' || tab === 'brief' || tab === 'bilan') && (
-            <div className="rounded-[10px] border border-dashed border-sand-300 bg-white py-16 text-center">
-              <p className="text-[13px] font-medium text-sand-500">Section en cours de construction</p>
-              <p className="mt-1 text-[12px] text-sand-400">Disponible dans une prochaine mise à jour.</p>
-            </div>
+          {/* ── Onglet Campagnes ── */}
+          {tab === 'campagnes' && (
+            <CampagnesTab
+              googleCampaigns={googleCampaigns}
+              metaCampaigns={metaCampaigns}
+            />
+          )}
+
+          {/* ── Onglet Brief ── */}
+          {tab === 'brief' && (
+            <BriefTab
+              briefData={brief}
+              program={{
+                name:          program.name,
+                location:      program.location as string | null,
+                has_brs:       Boolean(program.has_brs),
+                lot_count:     program.lot_count as number | null,
+                budget_google: budgetGoogle,
+                budget_meta:   budgetMeta,
+                status:        program.status,
+                created_at:    program.created_at as string | null | undefined,
+                updated_at:    program.updated_at as string | null | undefined,
+              }}
+            />
+          )}
+
+          {/* ── Onglet Bilan ── */}
+          {tab === 'bilan' && (
+            <BilanTab
+              allMetrics={allMetrics}
+              period={period}
+              budgetGoogle={budgetGoogle}
+              budgetMeta={budgetMeta}
+              targetCpl={targetCpl}
+            />
           )}
 
         </div>
