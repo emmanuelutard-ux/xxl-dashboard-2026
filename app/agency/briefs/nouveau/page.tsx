@@ -632,6 +632,7 @@ export default function NouveauBriefPage() {
       landing_page_url: state.landing_page_url,
       lp_not_ready:     state.lp_not_ready,
       crm_provider:     state.crm_provider,
+      ai_plan:          plan ? (plan as unknown as Record<string, unknown>) : null,
     })
 
     if (!result.success || !result.programId) {
