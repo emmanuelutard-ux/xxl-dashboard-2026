@@ -209,7 +209,7 @@ export default async function AgencyHomePage() {
             {periodLabel}
           </div>
           <Link
-            href="/agency/programs/new"
+            href="/agency/briefs/nouveau"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-ds-md bg-indigo-600 text-white border border-indigo-600 hover:bg-indigo-700 hover:border-indigo-700 transition-colors"
           >
             + Nouveau brief
