@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { Settings } from 'lucide-react'
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,8 @@ const XIcon = () => (
     <path d="M18 6L6 18M6 6l12 12"/>
   </svg>
 )
+const SettingsIcon = () => <Settings size={16} strokeWidth={1.6} />
+
 
 // ── Nav items ──────────────────────────────────────────────────────────────────
 
@@ -64,6 +67,10 @@ const NAV_ITEMS = [
   { key: 'briefs',   label: 'Briefs en attente', href: '/agency/briefs',   Icon: InboxIcon   },
   { key: 'reports',  label: 'Bilans clients',    href: '/agency/reports',  Icon: FileIcon    },
 ] as const
+
+const SETTINGS_ITEM = {
+  key: 'settings', label: 'Paramètres', href: '/agency/settings', Icon: SettingsIcon,
+} as const
 
 const LS_KEY = 'xxl_sidebar_collapsed'
 
@@ -78,31 +85,36 @@ function NavList({
   active: (href: string) => boolean
   onLinkClick?: () => void
 }) {
+  const renderItem = ({ key, label, href, Icon }: { key: string; label: string; href: string; Icon: () => React.JSX.Element }) => {
+    const on = active(href)
+    return (
+      <Link
+        key={key}
+        href={href}
+        title={collapsed ? label : undefined}
+        onClick={onLinkClick}
+        className={[
+          'flex items-center rounded-lg text-[13px] leading-none transition-colors',
+          collapsed ? 'justify-center py-2.5 px-0' : 'gap-2.5 px-2.5 py-2',
+          on
+            ? 'bg-white border border-sand-200 text-sand-900 font-semibold shadow-ds-sm'
+            : 'border border-transparent text-sand-700 font-medium hover:bg-sand-100',
+        ].join(' ')}
+      >
+        <span className={on ? 'text-sand-700' : 'text-sand-400'}>
+          <Icon />
+        </span>
+        {!collapsed && <span className="flex-1 leading-none">{label}</span>}
+      </Link>
+    )
+  }
+
   return (
     <nav className={['flex flex-col gap-0.5', collapsed ? 'px-1.5' : 'px-3'].join(' ')}>
-      {NAV_ITEMS.map(({ key, label, href, Icon }) => {
-        const on = active(href)
-        return (
-          <Link
-            key={key}
-            href={href}
-            title={collapsed ? label : undefined}
-            onClick={onLinkClick}
-            className={[
-              'flex items-center rounded-lg text-[13px] leading-none transition-colors',
-              collapsed ? 'justify-center py-2.5 px-0' : 'gap-2.5 px-2.5 py-2',
-              on
-                ? 'bg-white border border-sand-200 text-sand-900 font-semibold shadow-ds-sm'
-                : 'border border-transparent text-sand-700 font-medium hover:bg-sand-100',
-            ].join(' ')}
-          >
-            <span className={on ? 'text-sand-700' : 'text-sand-400'}>
-              <Icon />
-            </span>
-            {!collapsed && <span className="flex-1 leading-none">{label}</span>}
-          </Link>
-        )
-      })}
+      {NAV_ITEMS.map(renderItem)}
+      <div className="mt-2 pt-2 border-t border-sand-200">
+        {renderItem(SETTINGS_ITEM)}
+      </div>
     </nav>
   )
 }
