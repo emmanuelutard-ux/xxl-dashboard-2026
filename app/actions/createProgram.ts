@@ -29,7 +29,7 @@ export async function createProgram(formData: FormData) {
         return { success: false, errorMessage: error.message, details: error.details }
     }
 
-    revalidatePath('/expert/cockpit')
+    revalidatePath('/agency')
     revalidatePath('/agency/media-room')
     return { success: true }
 }

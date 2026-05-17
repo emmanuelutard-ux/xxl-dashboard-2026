@@ -16,5 +16,5 @@ export async function updateProgramSource(programId: string, newSource: 'platfor
         throw new Error('Failed to update source')
     }
 
-    revalidatePath('/expert/cockpit')
+    revalidatePath('/agency')
 }

@@ -49,6 +49,6 @@ export async function uploadAsset(formData: FormData) {
     }
 
     revalidatePath('/agency/media-room')
-    revalidatePath('/expert/cockpit') // Adding this as assets are viewed here too
+    revalidatePath('/agency') // Adding this as assets are viewed here too
     return { success: true }
 }

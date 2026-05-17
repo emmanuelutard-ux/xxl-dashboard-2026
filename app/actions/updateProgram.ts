@@ -33,7 +33,7 @@ export async function updateProgram(programId: string, formData: FormData) {
     }
 
     // Rafraîchissement global
-    revalidatePath('/expert/cockpit')
+    revalidatePath('/agency')
     revalidatePath('/client/dashboard')
     revalidatePath('/agency/media-room')
     revalidatePath('/', 'layout')

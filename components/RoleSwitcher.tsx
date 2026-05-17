@@ -18,7 +18,7 @@ export function RoleSwitcher() {
     const roles = [
         { id: 'client', email: 'client@xxl.com', label: 'Client / Promoteur', icon: Building2, path: '/client/dashboard' },
         { id: 'agency', email: 'agency@xxl.com', label: 'Agence XXL', icon: Users, path: '/agency/media-room' },
-        { id: 'expert', email: 'expert@xxl.com', label: 'Expert Acquisition', icon: Briefcase, path: '/expert/cockpit' },
+        { id: 'expert', email: 'expert@xxl.com', label: 'Expert Acquisition', icon: Briefcase, path: '/agency' },
     ];
 
     const handleSwitch = async (roleId: string, email: string, redirectPath: string) => {
