@@ -29,12 +29,14 @@ interface Props {
 function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
   return (
     <span className={cn(
-      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
-      ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+      'inline-flex items-center gap-1.5 rounded-ds-full border px-2.5 py-0.5 text-[11px] font-medium',
+      ok
+        ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+        : 'bg-rose-50 border-rose-100 text-rose-700'
     )}>
       {ok
-        ? <CheckCircle className="h-3.5 w-3.5" />
-        : <XCircle className="h-3.5 w-3.5" />}
+        ? <CheckCircle className="h-3 w-3" />
+        : <XCircle className="h-3 w-3" />}
       {label}
     </span>
   )
@@ -59,110 +61,122 @@ export default function SettingsClient({ integrations, env }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 md:px-8">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Paramètres</h1>
-        <p className="mt-1 text-sm text-slate-500">Configuration des connecteurs et variables d&apos;environnement.</p>
-      </div>
+    <div className="flex flex-col h-full">
 
-      {/* ── Section Connecteurs ── */}
-      <section className="space-y-4">
-        <h2 className="text-base font-semibold text-slate-800">Connecteurs</h2>
+      {/* ── TopBar ── */}
+      <header className="flex items-center justify-between pl-14 pr-4 md:px-6 py-3.5 border-b border-sand-200 bg-white shrink-0">
+        <div>
+          <div className="text-xs text-sand-500 mb-0.5">Paramètres</div>
+          <div className="text-lg font-semibold text-sand-900">Connecteurs &amp; environnement</div>
+        </div>
+      </header>
 
-        {/* Google Ads */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <p className="font-semibold text-slate-900">Google Ads</p>
-                <StatusBadge
-                  ok={integrations.google?.is_connected ?? false}
-                  label={integrations.google?.is_connected ? 'Connecté' : 'Non connecté'}
-                />
+      {/* ── Contenu ── */}
+      <div className="flex-1 overflow-auto p-5">
+        <div className="mx-auto max-w-3xl space-y-6">
+
+          {/* ── Section Connecteurs ── */}
+          <section className="space-y-3">
+            <h2 className="text-[11px] font-semibold text-sand-500 tracking-[0.06em] uppercase">Connecteurs</h2>
+
+            {/* Google Ads */}
+            <div className="rounded-[10px] border border-sand-200 bg-white shadow-ds-sm p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <p className="text-[13px] font-semibold text-sand-900">Google Ads</p>
+                    <StatusBadge
+                      ok={integrations.google?.is_connected ?? false}
+                      label={integrations.google?.is_connected ? 'Connecté' : 'Non connecté'}
+                    />
+                  </div>
+                  {integrations.google?.last_sync && (
+                    <p className="mt-1 text-[11px] text-sand-500 tabular-nums">
+                      Dernière sync : {fmtDate(integrations.google.last_sync)}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={testing}
+                    onClick={handleTest}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-ds-md border px-3 py-1.5 text-[12px] font-medium transition-colors',
+                      testing
+                        ? 'cursor-not-allowed border-sand-200 bg-sand-50 text-sand-400'
+                        : 'border-indigo-100 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                    )}
+                  >
+                    {testing
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <RefreshCw className="h-3.5 w-3.5" />}
+                    Tester la connexion
+                  </button>
+
+                  <Link
+                    href="/api/auth/signin/google_ads"
+                    className="inline-flex items-center gap-1.5 rounded-ds-md border border-sand-200 bg-white px-3 py-1.5 text-[12px] font-medium text-sand-700 hover:bg-sand-50 transition-colors"
+                  >
+                    Reconnecter
+                  </Link>
+                </div>
               </div>
-              {integrations.google?.last_sync && (
-                <p className="mt-1 text-xs text-slate-500">
-                  Dernière sync : {fmtDate(integrations.google.last_sync)}
-                </p>
+
+              {/* Résultat du test */}
+              {testResult && (
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    {testResult.success
+                      ? <CheckCircle className="h-4 w-4 text-emerald-500" />
+                      : <AlertCircle className="h-4 w-4 text-rose-500" />}
+                    <p className={cn('text-[12px] font-medium', testResult.success ? 'text-emerald-700' : 'text-rose-700')}>
+                      {testResult.success
+                        ? `Succès — HTTP ${testResult.status}`
+                        : `Échec — ${testResult.status ? `HTTP ${testResult.status}` : 'erreur réseau'}`}
+                    </p>
+                  </div>
+                  <pre className="overflow-x-auto rounded-ds-sm border border-sand-200 bg-sand-50 p-3 text-[11px] text-sand-700 whitespace-pre-wrap tabular-nums">
+                    {JSON.stringify(testResult.data ?? testResult.error, null, 2)}
+                  </pre>
+                </div>
               )}
             </div>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={testing}
-                onClick={handleTest}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
-                  testing
-                    ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
-                    : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50'
-                )}
-              >
-                {testing
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <RefreshCw className="h-4 w-4" />}
-                Tester la connexion
-              </button>
-
-              <Link
-                href="/api/auth/signin/google_ads"
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Reconnecter
-              </Link>
-            </div>
-          </div>
-
-          {/* Résultat du test */}
-          {testResult && (
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center gap-2">
-                {testResult.success
-                  ? <CheckCircle className="h-4 w-4 text-green-600" />
-                  : <AlertCircle className="h-4 w-4 text-red-500" />}
-                <p className={cn('text-sm font-medium', testResult.success ? 'text-green-700' : 'text-red-700')}>
-                  {testResult.success
-                    ? `Succès — HTTP ${testResult.status}`
-                    : `Échec — ${testResult.status ? `HTTP ${testResult.status}` : 'erreur réseau'}`}
-                </p>
+            {/* Meta Ads */}
+            <div className="rounded-[10px] border border-sand-200 bg-white shadow-ds-sm p-5">
+              <div className="flex items-center gap-2.5">
+                <p className="text-[13px] font-semibold text-sand-900">Meta Ads</p>
+                <StatusBadge
+                  ok={integrations.meta?.is_connected ?? false}
+                  label={integrations.meta?.is_connected ? 'Connecté' : 'Non connecté'}
+                />
               </div>
-              <pre className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 whitespace-pre-wrap">
-                {JSON.stringify(testResult.data ?? testResult.error, null, 2)}
-              </pre>
+              {integrations.meta?.last_sync && (
+                <p className="mt-1 text-[11px] text-sand-500 tabular-nums">
+                  Dernière sync : {fmtDate(integrations.meta.last_sync)}
+                </p>
+              )}
             </div>
-          )}
-        </div>
+          </section>
 
-        {/* Meta Ads */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <p className="font-semibold text-slate-900">Meta Ads</p>
-            <StatusBadge
-              ok={integrations.meta?.is_connected ?? false}
-              label={integrations.meta?.is_connected ? 'Connecté' : 'Non connecté'}
-            />
-          </div>
-          {integrations.meta?.last_sync && (
-            <p className="mt-1 text-xs text-slate-500">
-              Dernière sync : {fmtDate(integrations.meta.last_sync)}
-            </p>
-          )}
-        </div>
-      </section>
-
-      {/* ── Section Variables d'environnement ── */}
-      <section className="space-y-4">
-        <h2 className="text-base font-semibold text-slate-800">Variables d&apos;environnement</h2>
-        <div className="rounded-xl border border-slate-200 bg-white divide-y divide-slate-100 shadow-sm">
-          {(Object.entries(env) as [keyof EnvStatus, boolean][]).map(([key, defined]) => (
-            <div key={key} className="flex items-center justify-between px-5 py-3">
-              <code className="text-sm text-slate-700">{key}</code>
-              <StatusBadge ok={defined} label={defined ? 'Définie' : 'Manquante'} />
+          {/* ── Section Variables d'environnement ── */}
+          <section className="space-y-3">
+            <h2 className="text-[11px] font-semibold text-sand-500 tracking-[0.06em] uppercase">Variables d&apos;environnement</h2>
+            <div className="rounded-[10px] border border-sand-200 bg-white divide-y divide-sand-100 shadow-ds-sm overflow-hidden">
+              {(Object.entries(env) as [keyof EnvStatus, boolean][]).map(([key, defined]) => (
+                <div key={key} className="flex items-center justify-between px-5 py-3">
+                  <code className="text-[12px] text-sand-700 font-mono">{key}</code>
+                  <StatusBadge ok={defined} label={defined ? 'Définie' : 'Manquante'} />
+                </div>
+              ))}
             </div>
-          ))}
+          </section>
+
         </div>
-      </section>
+      </div>
+
     </div>
   )
 }
