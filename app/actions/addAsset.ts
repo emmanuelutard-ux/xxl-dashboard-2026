@@ -25,7 +25,7 @@ export async function addAsset(programId: string, type: 'image' | 'video', url: 
         return { success: false, error: 'Failed to add asset' }
     }
 
-    revalidatePath('/expert/cockpit')
+    revalidatePath('/agency')
     revalidatePath('/agency/media-room')
     return { success: true }
 }

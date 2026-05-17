@@ -48,7 +48,7 @@ export default function LoginPage() {
         console.log("Rôle détecté:", role)
 
         // Redirection
-        if (role === 'expert') router.push('/expert/cockpit')
+        if (role === 'expert') router.push('/agency')
         else if (role === 'agency') router.push('/agency/media-room')
         else router.push('/client/dashboard')
 

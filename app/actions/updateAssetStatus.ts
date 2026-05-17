@@ -18,6 +18,6 @@ export async function updateAssetStatus(assetId: string, newStatus: 'validated' 
 
     // On rafraîchit la page agence par sécurité
     revalidatePath('/agency/media-room')
-    revalidatePath('/expert/cockpit')
+    revalidatePath('/agency')
     return { success: true }
 }

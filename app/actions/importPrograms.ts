@@ -49,7 +49,7 @@ export async function importPrograms(formData: FormData) {
         }
     }
 
-    revalidatePath('/expert/cockpit')
+    revalidatePath('/agency')
     revalidatePath('/agency/media-room')
 
     return {

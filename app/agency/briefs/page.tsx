@@ -1,5 +1,5 @@
 // Briefs en attente — programmes au statut `brief` (cycle CLAUDE.md §8).
-// Lecture seule : agence/expert voient la file d'attente avant validation
+// Lecture seule : agence et expert voient la file d'attente avant validation
 // du plan média par le client.
 
 import { createServerClient } from '@supabase/ssr'

@@ -33,6 +33,6 @@ export async function saveIntegrationSettings(formData: FormData) {
         return { success: false, error: error.message }
     }
 
-    revalidatePath('/expert/cockpit')
+    revalidatePath('/agency')
     return { success: true }
 }

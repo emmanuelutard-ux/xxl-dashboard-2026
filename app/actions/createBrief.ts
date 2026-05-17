@@ -74,7 +74,7 @@ export async function createBrief(
   }
 
   revalidatePath('/agency/media-room')
-  revalidatePath('/expert/cockpit')
+  revalidatePath('/agency')
 
   return { success: true, programId: program.id }
 }
